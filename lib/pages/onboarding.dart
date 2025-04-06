@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:refillproo/pages/otp_authentication.dart';
+import 'registerPhone.dart'; // Ensure this import is correct
 
 class Onboarding extends StatefulWidget {
   const Onboarding({super.key});
@@ -9,14 +11,53 @@ class Onboarding extends StatefulWidget {
 
 class _OnboardingState extends State<Onboarding> {
   @override
+  void initState() {
+    super.initState();
+
+    // Add the 3-second delay before navigating
+    Future.delayed(Duration(seconds: 3), () {
+      // Navigate to the Registerphone screen after 3 seconds
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) =>  const Registerphone()),
+        );
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xff52677D),
-      body: Container(child: Column(children: [
-        // Stack(children: [Positioned(left: 20, top: 230, child: Image.asset("images/logo.png", height: MediaQuery.of(context).size.height/2, width: MediaQuery.of(context).size.width/2, fit: BoxFit.cover,))],),
-        Center(child: Image.asset("images/logo.png", height: MediaQuery.of(context).size.height/2, width: MediaQuery.of(context).size.width/2, fit: BoxFit.cover,)),
-        Text("Easy refills, anytime, anywhere.", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.0, fontFamily: "Poppins"),)
-      ],),)
+      backgroundColor: const Color(0xff52677D),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Image.asset(
+                  "images/logo.png",
+                  height: MediaQuery.of(context).size.height / 2,
+                  width: MediaQuery.of(context).size.width / 1,
+                ),
+                const SizedBox(height: 0.4),
+                const Text(
+                  "Easy refills, anytime, anywhere.",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16.0,
+                    fontFamily: "Poppins",
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

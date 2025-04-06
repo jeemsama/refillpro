@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:refillproo/pages/otp_authentication.dart';
 import 'registerPhone.dart'; // Ensure this import is correct
 
 class Onboarding extends StatefulWidget {

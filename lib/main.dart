@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:refillproo/pages/onboarding.dart'; // Ensure this import path is correct
-import 'package:refillproo/pages/otp_authentication.dart';
-import 'package:refillproo/pages/registerPhone.dart'; // Ensure this import path is correct
+ // Ensure this import path is correct
 
 void main() {
   runApp(const MyApp());

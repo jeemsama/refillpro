@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'home.dart'; // Import the home.dart file
 
 class OtpAuthentication extends StatefulWidget {
   @override
@@ -74,7 +75,11 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
                   height: 44,
                   child: ElevatedButton(
                     onPressed: () {
-                      print("Submitted");
+                      // Navigate to Home screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => HomePage()), // Replace Home() with your Home screen widget
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color(0xff0F1A2B),
@@ -100,8 +105,8 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
   // Reusable OTP box
   Widget buildOtpBox() {
     return Container(
-      width: 60,
-      height: 60,
+      width: 50,
+      height: 50,
       decoration: BoxDecoration(
         color: Color(0xffE1E1E1),
         borderRadius: BorderRadius.circular(5),
@@ -109,7 +114,7 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
       child: Center(
         child: TextField(
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 24),
+          style: TextStyle(fontSize: 28),
           keyboardType: TextInputType.number,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,

@@ -1,4 +1,4 @@
-package com.example.refillproo
+package com.refillproo
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -14,6 +14,10 @@ dependencies:
   flutter_map: ^8.1.1
   latlong2: ^0.9.1
   location: ^8.0.0
+  geolocator: ^13.0.4
+  permission_handler: ^11.4.0
+  http: ^1.3.0
+  logging: ^1.3.0
   cupertino_icons: ^1.0.8 # Ensure this is correctly aligned and not commented out
 
 dev_dependencies:
@@ -24,3 +28,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - images/
+

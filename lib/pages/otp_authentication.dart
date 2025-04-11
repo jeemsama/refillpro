@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'home.dart'; // Import the home.dart file
 
 class OtpAuthentication extends StatefulWidget {
+  const OtpAuthentication({super.key});
+
   @override
   State<OtpAuthentication> createState() => _OtpAuthenticationState();
 }

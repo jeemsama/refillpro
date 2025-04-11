@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'registerPhone.dart'; // Ensure this import is correct
+import 'register_phone.dart'; // Ensure this import is correct
 
 class Onboarding extends StatefulWidget {
   const Onboarding({super.key});

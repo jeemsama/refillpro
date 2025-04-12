@@ -24,6 +24,14 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  # image_path_android: "assets/icon/android_icon.png"
+  # image_path_ios: "assets/icon/ios_icon.png"
     
 
 flutter:
@@ -31,4 +39,9 @@ flutter:
 
   assets:
     - images/
+    - images/dispenser_gallon.png
+    - images/regular_gallon.png
+    - assets/icon/app_icon.png
+    - images/location1.jpg
+    - images/order_msg.png
 

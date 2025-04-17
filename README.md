@@ -1,6 +1,6 @@
 # refillproo
 
-A new Flutter project.
+Thesis mobile app
 
 ## Getting Started
 

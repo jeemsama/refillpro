@@ -1,6 +1,6 @@
-# refillproo
+# Refill Pro
 
-Thesis mobile app
+This project proposes the development of a Smart Ordering and Delivery Management System to streamline the operations of water refilling stations. It aims to replace traditional manual processes with digital solutions that increase efficiency and accuracy in handling customer orders and deliveries.
 
 ## Getting Started
 

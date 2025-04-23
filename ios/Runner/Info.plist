@@ -29,6 +29,11 @@
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>
+	<!-- Ask for location permission -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to show refill stations nearby.</string>
+
+
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>

@@ -19,6 +19,9 @@ dependencies:
   http: ^1.3.0
   logging: ^1.3.0
   cupertino_icons: ^1.0.8 # Ensure this is correctly aligned and not commented out
+  shared_preferences: ^2.5.3
+  logger: ^2.5.0
+  convert: ^3.1.2
 
 dev_dependencies:
   flutter_test:
@@ -39,8 +42,10 @@ flutter:
 
   assets:
     - images/
-    - images/dispenser_gallon.png
-    - images/regular_gallon.png
+    - assets/images/
+    - assets/images/regular_gallon.png
+    - assets/images/dispenser_gallon.png
+    - assets/images/small_gallon.png
     - assets/icon/app_icon.png
     - images/location1.jpg
     - images/order_msg.png

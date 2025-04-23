@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'map.dart';
+// import 'map.dart';
 
 
 class OrderForm extends StatefulWidget {
@@ -419,11 +419,11 @@ class _OrderFormState extends State<OrderForm> {
                         GestureDetector(
                           onTap: () {
                             // Space for your function later
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const MapPage(showDialogOnLoad: true)),
+                            // Navigator.push(
+                            //   context,
+                            //   MaterialPageRoute(builder: (context) => const MapPage(showDialogOnLoad: true)),
                               
-                            );
+                            // );
                           },
                           child: Container(
                             padding: EdgeInsets.symmetric(

@@ -70,10 +70,10 @@ class _ProfilePageState extends State<ProfilePage> {
             alignment: Alignment.center,
             children: [
               Container(
-                height: 100,
+                height: 150,
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 decoration: BoxDecoration(
-                  color: Colors.black87,
+                  color: const Color.fromARGB(255, 15, 26, 43),
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),

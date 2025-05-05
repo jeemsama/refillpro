@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math';
 import 'package:refillproo/navs/bottom_nav.dart';
+import 'package:refillproo/navs/header.dart';
+import 'package:refillproo/pages/activity.dart';
+import 'package:refillproo/pages/map.dart';
+import 'package:refillproo/pages/profile.dart';
 
 class Store {
   final String name;
@@ -36,6 +40,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   Position? _userLocation;
+  int _selectedIndex = 0;
 
   final List<Store> _stores = [
     Store(
@@ -82,20 +87,10 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void _onTapNav(int index, BuildContext context) {
-    switch (index) {
-      case 0:
-        break;
-      case 1:
-        Navigator.pushReplacementNamed(context, '/map');
-        break;
-      case 2:
-        Navigator.pushReplacementNamed(context, '/activity');
-        break;
-      case 3:
-        Navigator.pushReplacementNamed(context, '/profile');
-        break;
-    }
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   Widget _buildPickupReminder(Store nearestStore) {
@@ -123,37 +118,37 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildFlashcardRow() {
-  return Container(
-    height: 150, // Adjust height as needed
-    margin: const EdgeInsets.only(top: 8, bottom: 8),
-    child: ListView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        _buildInfoCard(
-          'Water Refill',
-          'Order purified or alkaline water for delivery or pickup.',
-          Icons.water_drop,
-          Colors.blue,
-        ),
-        _buildInfoCard(
-          'Container Pickup',
-          'We collect used containers based on your schedule.',
-          Icons.recycling,
-          Colors.green,
-        ),
-        _buildInfoCard(
-          'Sanitizing',
-          'Ensure your containers are safe and hygienic.',
-          Icons.cleaning_services,
-          Colors.purple,
-        ),
-      ],
-    ),
-  );
-}
-  Widget _buildInfoCard(
-      String title, String description, IconData icon, Color iconColor) {
+    return Container(
+      height: 150,
+      margin: const EdgeInsets.only(top: 8, bottom: 8),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          _buildInfoCard(
+            'Water Refill',
+            'Order purified or alkaline water for delivery or pickup.',
+            Icons.water_drop,
+            Colors.blue,
+          ),
+          _buildInfoCard(
+            'Container Pickup',
+            'We collect used containers based on your schedule.',
+            Icons.recycling,
+            Colors.green,
+          ),
+          _buildInfoCard(
+            'Sanitizing',
+            'Ensure your containers are safe and hygienic.',
+            Icons.cleaning_services,
+            Colors.purple,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(String title, String description, IconData icon, Color iconColor) {
     return Container(
       width: 220,
       margin: const EdgeInsets.only(right: 12),
@@ -169,8 +164,7 @@ class _HomePageState extends State<HomePage> {
           Icon(icon, color: iconColor, size: 30),
           const SizedBox(height: 10),
           Text(title,
-              style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 6),
           Text(description, style: const TextStyle(fontSize: 13)),
         ],
@@ -178,52 +172,80 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Home')),
-      body: _userLocation == null
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildPickupReminder(_stores.first),
-                _buildFlashcardRow(), // 👈 Flashcards placed here after the reminder
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _stores.length,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 0),
-                    itemBuilder: (context, index) {
-                      final store = _stores[index];
-                      final distance = store
-                          .distanceFrom(_userLocation!)
-                          .toStringAsFixed(2);
-                      return Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(16),
-                          title: Text(store.name,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle:
-                              Text('Pickup: ${store.collectionDay}'),
-                          trailing: Text('$distance km'),
-                        ),
-                      );
-                    },
-                  ),
+  Widget _buildHomeScreenContent() {
+    if (_userLocation == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPickupReminder(_stores.first),
+        _buildFlashcardRow(),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _stores.length,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+            itemBuilder: (context, index) {
+              final store = _stores[index];
+              final distance = store.distanceFrom(_userLocation!).toStringAsFixed(2);
+              return Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
-            ),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: 0,
-        onTap: (index) => _onTapNav(index, context),
-      ),
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  title: Text(store.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('Pickup: ${store.collectionDay}'),
+                  trailing: Text('$distance km'),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
+
+@override
+Widget build(BuildContext context) {
+  final List<Widget> screens = [
+    _buildHomeScreenContent(), // index 0
+    const MapPage(),           // index 1
+    const ActivityPage(),      // index 2
+    Profile(),                 // index 3
+  ];
+
+  return Scaffold(
+    // Hide AppHeader on Profile page
+    appBar: _selectedIndex != 3
+        ? const PreferredSize(
+            preferredSize: Size.fromHeight(kToolbarHeight),
+            child: AppHeader(),
+          )
+        : null,
+    body: Stack(
+      children: [
+        IndexedStack(
+          index: _selectedIndex,
+          children: screens,
+        ),
+        // Hide BottomNavBar on Profile page
+        if (_selectedIndex != 3)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 30,
+            child: CustomBottomNavBar(
+              selectedIndex: _selectedIndex,
+              onItemTapped: _onItemTapped,
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
 }

@@ -2,15 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:refillproo/navs/bottom_nav.dart';
+// import 'package:refillproo/navs/bottom_nav.dart';
 
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/refilling_station.dart';
-
-
-
-
 import 'package:permission_handler/permission_handler.dart'; 
 
 class MapPage extends StatefulWidget {
@@ -297,21 +293,21 @@ void _showLocationPermissionDialog() {
     );
   }
 
-  void _onTapNav(int index, BuildContext context) {
-    switch (index) {
-      case 0:
-        Navigator.pushReplacementNamed(context, '/home');
-        break;
-      case 1:
-        break;
-      case 2:
-        Navigator.pushReplacementNamed(context, '/activity');
-        break;
-      case 3:
-        Navigator.pushReplacementNamed(context, '/profile');
-        break;
-    }
-  }
+  // void _onTapNav(int index, BuildContext context) {
+  //   switch (index) {
+  //     case 0:
+  //       Navigator.pushReplacementNamed(context, '/home');
+  //       break;
+  //     case 1:
+  //       break;
+  //     case 2:
+  //       Navigator.pushReplacementNamed(context, '/activity');
+  //       break;
+  //     case 3:
+  //       Navigator.pushReplacementNamed(context, '/profile');
+  //       break;
+  //   }
+  // }
 
   // Fetch the route from OpenRouteService API
   Future<void> _getRouteFromApi(LatLng start, LatLng end) async {
@@ -370,7 +366,7 @@ void _showLocationPermissionDialog() {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Map')),
+      // appBar: AppBar(title: const Text('Map')),
       body: _userLocation != null
           ? FlutterMap(
               mapController: _mapController,
@@ -424,10 +420,10 @@ void _showLocationPermissionDialog() {
               ],
             )
           : const Center(child: CircularProgressIndicator()),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: 1,
-        onTap: (index) => _onTapNav(index, context),
-      ),
+      // bottomNavigationBar: BottomNavBar(
+      //   currentIndex: 1,
+      //   onTap: (index) => _onTapNav(index, context),
+      // ),
     );
   }
   

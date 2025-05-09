@@ -148,23 +148,23 @@ class _ProfileContentState extends State<ProfileContent> {
                           color: const Color(0xFFD9D9D9),
                         ),
                       ),
-                      Positioned(
-                        right: 0,
-                        bottom: 8,
-                        child: Container(
-                          width: w(24),
-                          height: h(24),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.edit,
-                            size: fontSize(14),
-                            color: const Color(0xFF1F2937),
-                          ),
-                        ),
-                      ),
+                      // Positioned(
+                      //   right: 0,
+                      //   bottom: 8,
+                      //   child: Container(
+                      //     width: w(24),
+                      //     height: h(24),
+                      //     decoration: const BoxDecoration(
+                      //       color: Colors.white,
+                      //       shape: BoxShape.circle,
+                      //     ),
+                      //     child: Icon(
+                      //       Icons.edit,
+                      //       size: fontSize(14),
+                      //       color: const Color(0xFF1F2937),
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                   const SizedBox(height: 10),

@@ -14,7 +14,7 @@ class ActivityPage extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                "Activity",
+                "Your Orders",
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
@@ -25,7 +25,7 @@ class ActivityPage extends StatelessWidget {
           const SizedBox(height: 10),
           Expanded(
             child: ListView.builder(
-              itemCount: 4, // You can make this dynamic later
+              itemCount: 1, // You can make this dynamic later
               itemBuilder: (context, index) => ActivityCard(
                 shopName: "Nhorlen’s Water Station",
                 dateTime: "21 Mar 2025, 9:35 AM",
@@ -41,7 +41,7 @@ class ActivityPage extends StatelessWidget {
   }
 }
 
-class ActivityCard extends StatefulWidget {
+class ActivityCard extends StatelessWidget {
   final String shopName;
   final String dateTime;
   final double amount;
@@ -58,77 +58,224 @@ class ActivityCard extends StatefulWidget {
   });
 
   @override
-  State<ActivityCard> createState() => _ActivityCardState();
-}
-
-class _ActivityCardState extends State<ActivityCard> {
-  bool _expanded = false;
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => setState(() => _expanded = !_expanded),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.grey,
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Container(
+      width: screenWidth * 0.95,
+      height: screenHeight * 0.28,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Stack(
+        children: [
+          Positioned(
+            left: screenWidth * 0.025,
+            top: 0,
+            child: Container(
+              width: screenWidth * 0.9,
+              height: screenHeight * 0.24,
+              decoration: ShapeDecoration(
+                color: const Color(0xFF1F2937),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(widget.shopName,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
-                      const SizedBox(height: 4),
-                      Text(widget.dateTime,
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.grey)),
-                      const SizedBox(height: 8),
-                      const Row(
-                        children: [
-                          Text("Pending",
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Text("₱${widget.amount.toStringAsFixed(2)}",
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14)),
-              ],
+              ),
             ),
-            if (_expanded) ...[
-              const SizedBox(height: 12),
-              const Divider(),
-              const SizedBox(height: 8),
-              Text("Order No: ${widget.orderNumber}",
-                  style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 4),
-              Text("Ordered By: ${widget.orderedBy}",
-                  style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w500)),
-            ],
-          ],
+          ),
+          Positioned(
+            left: screenWidth * -0.06,
+            top: screenHeight * 0.050,
+            child: SizedBox(
+              width: screenWidth * 0.4,
+              child: const Text(
+                '8:00 AM',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: screenWidth * 0.08,
+            top: screenHeight * 0.135,
+            child: Container(
+              width: screenWidth * 0.1,
+              height: screenHeight * 0.07,
+              decoration: BoxDecoration(
+                image: const DecorationImage(
+                  image: AssetImage('images/dispenser_gallon.png'),
+                  fit: BoxFit.cover,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          Positioned(
+            left: screenWidth * 0.22,
+            top: screenHeight * 0.135,
+            child: Container(
+              width: screenWidth * 0.08,
+              height: screenHeight * 0.07,
+              decoration: BoxDecoration(
+                image: const DecorationImage(
+                  image: AssetImage('images/regular_gallon.png'),
+                  fit: BoxFit.cover,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          Positioned(
+            left: screenWidth * 0.255,
+            top: screenHeight * 0.21,
+            child: const Text(
+              'x2',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 7,
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Positioned(
+            left: screenWidth * 0.12,
+            top: screenHeight * 0.21,
+            child: const Text(
+              'x2',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 7,
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Positioned(
+            left: screenWidth * 0.08,
+            top: screenHeight * 0.01,
+            child: Text(
+              orderedBy,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Positioned(
+            left: screenWidth * 0.08,
+            top: screenHeight * 0.035,
+            child: const Text(
+              '0912-3234-234',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w300,
+              ),
+            ),
+          ),
+          Positioned(
+            left: screenWidth * 0.08,
+            top: screenHeight * 0.064,
+            child: const Text(
+              'Borrow gallon',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w300,
+              ),
+            ),
+          ),
+          Positioned(
+            left: screenWidth * 0.08,
+            top: screenHeight * 0.09,
+            child: SizedBox(
+              width: screenWidth * 0.3,
+              child: const Text(
+                'Message here Message hereMessage hereMessage hereMessage hereMessage ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 7,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: screenWidth * 0.65,
+            top: screenHeight * 0.155,
+            child: ElevatedButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Order cancelled")),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFA62C2C),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                minimumSize: Size(screenWidth * 0.2, screenHeight * 0.03),
+                padding: EdgeInsets.zero,
+              ),
+              child: const Text(
+                'Cancel order',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: screenWidth * 0.69,
+            top: screenHeight * 0.20,
+            child: Text(
+              '₱${amount.toStringAsFixed(2)}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Positioned(
+  left: screenWidth * 0.66,
+  top: screenHeight * 0.03,
+  child: Row(
+    children: const [
+      Text(
+        'Pending',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
         ),
+      ),
+      SizedBox(width: 4),
+      Icon(
+        Icons.access_time, // or any other icon you prefer
+        color: Colors.white,
+        size: 16,
+      ),
+    ],
+  ),
+),
+
+        ],
       ),
     );
   }

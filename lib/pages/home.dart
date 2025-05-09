@@ -173,41 +173,51 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHomeScreenContent() {
-    if (_userLocation == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildPickupReminder(_stores.first),
-        _buildFlashcardRow(),
-        Expanded(
-          child: ListView.builder(
-            itemCount: _stores.length,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-            itemBuilder: (context, index) {
-              final store = _stores[index];
-              final distance = store.distanceFrom(_userLocation!).toStringAsFixed(2);
-              return Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  title: Text(store.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('Pickup: ${store.collectionDay}'),
-                  trailing: Text('$distance km'),
-                ),
-              );
-            },
-          ),
+  final hasLocation = _userLocation != null;
+  final nearestStore = hasLocation
+      ? _stores.first
+      : Store(
+          name: 'Fetching nearest store...',
+          latitude: 0.0,
+          longitude: 0.0,
+          collectionDay: 'Loading...',
+        );
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _buildPickupReminder(nearestStore),
+      _buildFlashcardRow(),
+      Expanded(
+        child: ListView.builder(
+          itemCount: _stores.length,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          itemBuilder: (context, index) {
+            final store = _stores[index];
+            final distance = hasLocation
+                ? '${store.distanceFrom(_userLocation!).toStringAsFixed(2)} km'
+                : '...';
+            return Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(16),
+                title: Text(store.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Pickup: ${store.collectionDay}'),
+                trailing: Text(distance),
+              ),
+            );
+          },
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
+
 
 @override
 Widget build(BuildContext context) {

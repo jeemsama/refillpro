@@ -241,7 +241,7 @@ class _ProfileContentState extends State<ProfileContent> {
                               TextButton(
                                 onPressed: () {
                                   Navigator.pop(context);
-                                  // TODO: Implement actual delete logic here
+                                  // 
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(content: Text('Account deleted')),
                                   );

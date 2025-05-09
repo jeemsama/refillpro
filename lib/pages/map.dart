@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-// import 'package:refillproo/navs/bottom_nav.dart';
 
 import 'package:http/http.dart' as http;
+import 'package:refillproo/pages/order_form.dart';
 import 'dart:convert';
 import '../models/refilling_station.dart';
 import 'package:permission_handler/permission_handler.dart'; 
@@ -116,22 +116,40 @@ void _showLocationPermissionDialog() {
   );
 }
 
-  Future<void> _fetchRefillStations() async {
-    final url = Uri.parse('http://192.168.43.167:8000/api/v1/refill-stations'); // <- Replace with your actual API endpoint
-    try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        setState(() {
-          _stations = data.map((json) => RefillingStation.fromJson(json)).toList();
-        });
-      } else {
-        throw Exception('Failed to load stations');
+Future<void> _fetchRefillStations() async {
+  final url = Uri.parse('http://192.168.1.23:8000/api/v1/refill-stations');
+  try {
+    final response = await http.get(url);
+    
+    // Print full response for debugging
+    debugPrint("Response status: ${response.statusCode}");
+    debugPrint("Raw response: ${response.body}");
+    
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      
+      // Print the first item to see its structure
+      if (data.isNotEmpty) {
+        debugPrint("First item structure: ${json.encode(data[0])}");
       }
-    } catch (e) {
-      debugPrint("Error fetching stations: $e");
+      
+      setState(() {
+        try {
+          _stations = data.map((json) => RefillingStation.fromJson(json)).toList();
+          debugPrint("Successfully parsed ${_stations.length} stations");
+        } catch (e) {
+          debugPrint("Error parsing JSON to RefillingStation objects: $e");
+          // Continue with empty list
+          _stations = [];
+        }
+      });
+    } else {
+      throw Exception('Failed to load stations: ${response.statusCode}');
     }
+  } catch (e) {
+    debugPrint("Error fetching stations: $e");
   }
+}
 
   //Refilling station dialog style
   Future<void> _showStationDialog(RefillingStation station) async {
@@ -717,9 +735,9 @@ void _showGallonBottomSheet(RefillingStation station) {
                           // Implement review and payment logic
                           if (regularGallonCount > 0 || dispenserGallonCount > 0 || smallGallonCount > 0) {
                             // Navigate to payment page or handle payment logic
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Proceeding to payment...'))
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => OrderForm()),
                             );
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(

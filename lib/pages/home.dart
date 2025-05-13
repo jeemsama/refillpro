@@ -1,35 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-import 'dart:math';
+import 'package:intl/intl.dart';
 import 'package:refillproo/navs/bottom_nav.dart';
 import 'package:refillproo/navs/header.dart';
 import 'package:refillproo/pages/activity.dart';
 import 'package:refillproo/pages/map.dart';
 import 'package:refillproo/pages/profile.dart';
-
-class Store {
-  final String name;
-  final double latitude;
-  final double longitude;
-  final String collectionDay;
-
-  Store({
-    required this.name,
-    required this.latitude,
-    required this.longitude,
-    required this.collectionDay,
-  });
-
-  double distanceFrom(Position userLocation) {
-    var p = 0.017453292519943295;
-    var a = 0.5 -
-        cos((latitude - userLocation.latitude) * p) / 2 +
-        cos(userLocation.latitude * p) *
-            cos(latitude * p) *
-            (1 - cos((longitude - userLocation.longitude) * p)) / 2;
-    return 12742 * asin(sqrt(a));
-  }
-}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -39,78 +14,145 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  Position? _userLocation;
   int _selectedIndex = 0;
+  int _selectedQuizOption = -1;
 
-  final List<Store> _stores = [
-    Store(
-      name: 'Nhonlen’s Water Station',
-      latitude: 17.608,
-      longitude: 121.728,
-      collectionDay: 'Every Monday',
-    ),
-    Store(
-      name: 'Crystal Water Refilling',
-      latitude: 17.610,
-      longitude: 121.726,
-      collectionDay: 'Every Wednesday',
-    ),
-    Store(
-      name: 'Pure Aqua Station',
-      latitude: 17.606,
-      longitude: 121.730,
-      collectionDay: 'Every Friday',
-    ),
+  final List<String> _tips = [
+    'Drink at least 8 glasses of water each day to stay hydrated.',
+    'Cold water can help boost your metabolism slightly.',
+    'Carry a reusable bottle to track and increase your intake.',
+    'Infuse your water with fruits for added flavor and nutrients.',
+    'Drinking water before meals can help with digestion and appetite control.',
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _getUserLocation();
+  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
-  Future<void> _getUserLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return;
-    }
-
-    Position position = await Geolocator.getCurrentPosition();
-    setState(() {
-      _userLocation = position;
-      _stores.sort((a, b) =>
-          a.distanceFrom(position).compareTo(b.distanceFrom(position)));
-    });
+  Widget _buildGreeting() {
+    final now = DateTime.now();
+    final formatted = DateFormat('h:mm a • EEEE, MMMM d, y').format(now);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${_greeting()},',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            formatted,
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  Widget _buildPickupReminder(Store nearestStore) {
+  Widget _buildTipCard() {
+    final tip = _tips[DateTime.now().day % _tips.length];
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.shade300),
+        gradient: LinearGradient(
+          colors: [Colors.teal.shade400, Colors.teal.shade200],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(90),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          const Icon(Icons.recycling, color: Colors.green),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(90),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.lightbulb, size: 28, color: Colors.white),
+          ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              '♻️ Pickup is scheduled ${nearestStore.collectionDay} at ${nearestStore.name}',
-              style: const TextStyle(fontWeight: FontWeight.w500),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tip of the Day',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  tip,
+                  style: const TextStyle(fontSize: 15, color: Colors.white),
+                ),
+              ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color baseColor,
+  }) {
+    return Container(
+      width: 220,
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [baseColor.withAlpha(150), baseColor.withAlpha(60)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(60),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(80),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 28, color: baseColor),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: const TextStyle(fontSize: 13, color: Colors.white70),
           ),
         ],
       ),
@@ -118,144 +160,150 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildFlashcardRow() {
-    return Container(
-      height: 150,
-      margin: const EdgeInsets.only(top: 8, bottom: 8),
+    return SizedBox(
+      height: 180,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          _buildInfoCard(
-            'Water Refill',
-            'Order purified or alkaline water for delivery or pickup.',
-            Icons.water_drop,
-            Colors.blue,
+          _buildFeatureCard(
+            title: 'Water Refill',
+            subtitle: 'Order purified or alkaline water for delivery or pickup.',
+            icon: Icons.water_drop,
+            baseColor: Colors.blue,
           ),
-          _buildInfoCard(
-            'Container Pickup',
-            'We collect used containers based on your schedule.',
-            Icons.recycling,
-            Colors.green,
+          _buildFeatureCard(
+            title: 'Container Pickup',
+            subtitle: 'We collect used containers based on your schedule.',
+            icon: Icons.recycling,
+            baseColor: Colors.green,
           ),
-          _buildInfoCard(
-            'Sanitizing',
-            'Ensure your containers are safe and hygienic.',
-            Icons.cleaning_services,
-            Colors.purple,
+          _buildFeatureCard(
+            title: 'Sanitizing',
+            subtitle: 'Ensure your containers are safe and hygienic.',
+            icon: Icons.cleaning_services,
+            baseColor: Colors.purple,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoCard(String title, String description, IconData icon, Color iconColor) {
+  Widget _buildQuizCard() {
+    const question = 'How many glasses have you drunk today?';
+    final options = ['0', '1', '2', '3', '4', '5+'];
     return Container(
-      width: 220,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: iconColor.withAlpha((255 * 0.1).toInt()),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: iconColor.withAlpha((255 * 0.3).toInt())),
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade400, Colors.orange.shade200],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(90),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: iconColor, size: 30),
-          const SizedBox(height: 10),
-          Text(title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 6),
-          Text(description, style: const TextStyle(fontSize: 13)),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(80),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.quiz, size: 28, color: Colors.orange),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Quick Poll',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            question,
+            style: const TextStyle(fontSize: 15, color: Colors.white),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            children: List.generate(options.length, (i) {
+              final selected = _selectedQuizOption == i;
+              return ChoiceChip(
+                label: Text(
+                  options[i],
+                  style: TextStyle(color: selected ? Colors.orange.shade900 : const Color.fromARGB(255, 19, 19, 19)),
+                ),
+                selected: selected,
+                backgroundColor: Colors.white.withAlpha(60),
+                selectedColor: Colors.white.withAlpha(150),
+                onSelected: (_) => setState(() => _selectedQuizOption = selected ? -1 : i),
+              );
+            }),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildHomeScreenContent() {
-  final hasLocation = _userLocation != null;
-  final nearestStore = hasLocation
-      ? _stores.first
-      : Store(
-          name: 'Fetching nearest store...',
-          latitude: 0.0,
-          longitude: 0.0,
-          collectionDay: 'Loading...',
-        );
-
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _buildPickupReminder(nearestStore),
-      _buildFlashcardRow(),
-      Expanded(
-        child: ListView.builder(
-          itemCount: _stores.length,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          itemBuilder: (context, index) {
-            final store = _stores[index];
-            final distance = hasLocation
-                ? '${store.distanceFrom(_userLocation!).toStringAsFixed(2)} km'
-                : '...';
-            return Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(16),
-                title: Text(store.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('Pickup: ${store.collectionDay}'),
-                trailing: Text(distance),
-              ),
-            );
-          },
-        ),
+  Widget _buildHomeContent() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildGreeting(),
+          _buildTipCard(),
+          _buildFlashcardRow(),
+          _buildQuizCard(),
+        ],
       ),
-    ],
-  );
-}
+    );
+  }
 
-
-@override
-Widget build(BuildContext context) {
-  final List<Widget> screens = [
-    _buildHomeScreenContent(), // index 0
-    const MapPage(),           // index 1
-    const ActivityPage(),      // index 2
-    Profile(),                 // index 3
-  ];
-
-  return Scaffold(
-    // Hide AppHeader on Profile page
-    appBar: _selectedIndex != 3
-        ? const PreferredSize(
-            preferredSize: Size.fromHeight(kToolbarHeight),
-            child: AppHeader(),
-          )
-        : null,
-    body: Stack(
-      children: [
-        IndexedStack(
-          index: _selectedIndex,
-          children: screens,
-        ),
-        // Hide BottomNavBar on Profile page
-        if (_selectedIndex != 3)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 30,
-            child: CustomBottomNavBar(
-              selectedIndex: _selectedIndex,
-              onItemTapped: _onItemTapped,
-            ),
+  @override
+  Widget build(BuildContext context) {
+    final screens = [
+      _buildHomeContent(),
+      const MapPage(),
+      const ActivityPage(),
+      Profile(),
+    ];
+    return Scaffold(
+      appBar: _selectedIndex != 3
+          ? const PreferredSize(
+              preferredSize: Size.fromHeight(kToolbarHeight),
+              child: AppHeader(),
+            )
+          : null,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _selectedIndex,
+            children: screens,
           ),
-      ],
-    ),
-  );
-}
-
+          if (_selectedIndex != 3)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 30,
+              child: CustomBottomNavBar(
+                selectedIndex: _selectedIndex,
+                onItemTapped: _onItemTapped,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

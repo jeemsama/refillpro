@@ -22,6 +22,8 @@ dependencies:
   shared_preferences: ^2.5.3
   logger: ^2.5.0
   convert: ^3.1.2
+  intl: ^0.18.0   # or whatever the latest version is
+
 
 dev_dependencies:
   flutter_test:
@@ -49,4 +51,5 @@ flutter:
     - assets/icon/app_icon.png
     - images/location1.jpg
     - images/order_msg.png
+    - images/logo2.png
 

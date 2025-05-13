@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'home.dart'; // Import the home.dart file
+import 'home.dart';
 
 class OtpAuthentication extends StatefulWidget {
-  const OtpAuthentication({super.key});
+  final String email; // <-- Accept email
+
+  const OtpAuthentication({super.key, required this.email});
 
   @override
   State<OtpAuthentication> createState() => _OtpAuthenticationState();
 }
 
 class _OtpAuthenticationState extends State<OtpAuthentication> {
+  final List<TextEditingController> _otpControllers = List.generate(4, (_) => TextEditingController());
+
+  @override
+  void dispose() {
+    for (var controller in _otpControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -25,7 +37,6 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
             children: [
               SizedBox(height: height * 0.1),
 
-              // Title
               Text(
                 "Check your messages",
                 style: const TextStyle(
@@ -40,9 +51,8 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
 
               SizedBox(height: height * 0.010),
 
-              // Subtitle
               Text(
-                "Enter the code we have sent to your number.",
+                "Enter the code we have sent to ${widget.email}.", // <-- Use email
                 style: const TextStyle(
                   color: Colors.white70,
                   fontFamily: "Poppins",
@@ -53,23 +63,20 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
 
               SizedBox(height: height * 0.05),
 
-              // Four OTP Boxes
+              // OTP input
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  buildOtpBox(),
-                  SizedBox(width: 5),
-                  buildOtpBox(),
-                  SizedBox(width: 5),
-                  buildOtpBox(),
-                  SizedBox(width: 5),
-                  buildOtpBox(),
-                ],
+                children: List.generate(
+                  4,
+                  (index) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: buildOtpBox(_otpControllers[index]),
+                  ),
+                ),
               ),
 
               SizedBox(height: height * 0.02),
 
-              // Submit button
               Align(
                 alignment: Alignment.centerRight,
                 child: SizedBox(
@@ -77,10 +84,11 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
                   height: 44,
                   child: ElevatedButton(
                     onPressed: () {
-                      // Navigate to Home screen
+                      String otp = _otpControllers.map((c) => c.text).join();
+                      // TODO: Validate the OTP with backend here before navigating
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => HomePage()), // Replace Home() with your Home screen widget
+                        MaterialPageRoute(builder: (context) => HomePage()),
                       );
                     },
                     style: ElevatedButton.styleFrom(
@@ -104,8 +112,7 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
     );
   }
 
-  // Reusable OTP box
-  Widget buildOtpBox() {
+  Widget buildOtpBox(TextEditingController controller) {
     return Container(
       width: 50,
       height: 50,
@@ -115,6 +122,7 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
       ),
       child: Center(
         child: TextField(
+          controller: controller,
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 28),
           keyboardType: TextInputType.number,
@@ -125,6 +133,11 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
           decoration: InputDecoration(
             border: InputBorder.none,
           ),
+          onChanged: (value) {
+            if (value.isNotEmpty && controller.selection.baseOffset == 1) {
+              FocusScope.of(context).nextFocus();
+            }
+          },
         ),
       ),
     );

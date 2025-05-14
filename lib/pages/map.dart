@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:refillproo/pages/order_form.dart';
 import 'dart:convert';
 import '../models/refilling_station.dart';
-import 'package:permission_handler/permission_handler.dart'; 
+import 'package:permission_handler/permission_handler.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -22,134 +22,132 @@ class _MapPageState extends State<MapPage> {
   List<RefillingStation> _stations = [];
   List<LatLng> _routePoints = []; // Added missing declaration
 
-
-
   @override
   void initState() {
     super.initState();
     _determinePosition();
   }
 
+  Future<void> _determinePosition() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showLocationServiceDialog();
+      return;
+    }
 
-Future<void> _determinePosition() async {
-  bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-  if (!serviceEnabled) {
-    _showLocationServiceDialog();
-    return;
-  }
-
-  LocationPermission permission = await Geolocator.checkPermission();
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        _showLocationPermissionDialog();
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
       _showLocationPermissionDialog();
       return;
     }
+
+    final position = await Geolocator.getCurrentPosition(
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high));
+
+    setState(() {
+      _userLocation = LatLng(position.latitude, position.longitude);
+      // If you want to include the _locationLoaded flag as in your old code
+      // _locationLoaded = true;
+    });
+
+    // If you want to move the map to the user's location as in your old code
+    // mapController.move(_userLocation, 17.0);
+
+    await _fetchRefillStations();
   }
 
-  if (permission == LocationPermission.deniedForever) {
-    _showLocationPermissionDialog();
-    return;
+  void _showLocationServiceDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Location Services Disabled"),
+        content: Text("Please enable location services to view your location."),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await Geolocator.openLocationSettings();
+            },
+            child: Text("Open Settings"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancel"),
+          ),
+        ],
+      ),
+    );
   }
 
-  final position = await Geolocator.getCurrentPosition(
-    locationSettings: const LocationSettings(
-      accuracy: LocationAccuracy.high
-    )
-  );
-  
-  setState(() {
-    _userLocation = LatLng(position.latitude, position.longitude);
-    // If you want to include the _locationLoaded flag as in your old code
-    // _locationLoaded = true;
-  });
+  void _showLocationPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Location Permission Denied"),
+        content:
+            Text("Please grant location permission to view your location."),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await openAppSettings();
+            },
+            child: Text("Open Settings"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancel"),
+          ),
+        ],
+      ),
+    );
+  }
 
-  // If you want to move the map to the user's location as in your old code
-  // mapController.move(_userLocation, 17.0);
+  Future<void> _fetchRefillStations() async {
+    final url = Uri.parse('http://192.168.1.43:8000/api/v1/refill-stations');
+    try {
+      final response = await http.get(url);
 
-  await _fetchRefillStations();
-}
+      // Print full response for debugging
+      debugPrint("Response status: ${response.statusCode}");
+      debugPrint("Raw response: ${response.body}");
+      debugPrint("Rendering ${_stations.length} station markers");
 
-void _showLocationServiceDialog() {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text("Location Services Disabled"),
-      content: Text("Please enable location services to view your location."),
-      actions: [
-        TextButton(
-          onPressed: () async {
-            Navigator.pop(context);
-            await Geolocator.openLocationSettings();
-          },
-          child: Text("Open Settings"),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text("Cancel"),
-        ),
-      ],
-    ),
-  );
-}
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
 
-void _showLocationPermissionDialog() {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text("Location Permission Denied"),
-      content: Text("Please grant location permission to view your location."),
-      actions: [
-        TextButton(
-          onPressed: () async {
-            Navigator.pop(context);
-            await openAppSettings();
-          },
-          child: Text("Open Settings"),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text("Cancel"),
-        ),
-      ],
-    ),
-  );
-}
-
-Future<void> _fetchRefillStations() async {
-  final url = Uri.parse('http://192.168.1.23:8000/api/v1/refill-stations');
-  try {
-    final response = await http.get(url);
-    
-    // Print full response for debugging
-    debugPrint("Response status: ${response.statusCode}");
-    debugPrint("Raw response: ${response.body}");
-    
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      
-      // Print the first item to see its structure
-      if (data.isNotEmpty) {
-        debugPrint("First item structure: ${json.encode(data[0])}");
-      }
-      
-      setState(() {
-        try {
-          _stations = data.map((json) => RefillingStation.fromJson(json)).toList();
-          debugPrint("Successfully parsed ${_stations.length} stations");
-        } catch (e) {
-          debugPrint("Error parsing JSON to RefillingStation objects: $e");
-          // Continue with empty list
-          _stations = [];
+        // Print the first item to see its structure
+        if (data.isNotEmpty) {
+          debugPrint("First item structure: ${json.encode(data[0])}");
         }
-      });
-    } else {
-      throw Exception('Failed to load stations: ${response.statusCode}');
+
+        setState(() {
+          try {
+            _stations =
+                data.map((json) => RefillingStation.fromJson(json)).toList();
+            debugPrint("Successfully parsed ${_stations.length} stations");
+          } catch (e) {
+            debugPrint("Error parsing JSON to RefillingStation objects: $e");
+            // Continue with empty list
+            _stations = [];
+          }
+        });
+      } else {
+        throw Exception('Failed to load stations: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint("Error fetching stations: $e");
     }
-  } catch (e) {
-    debugPrint("Error fetching stations: $e");
   }
-}
 
   //Refilling station dialog style
   Future<void> _showStationDialog(RefillingStation station) async {
@@ -240,7 +238,8 @@ Future<void> _fetchRefillStations() async {
                       Navigator.pop(context);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('User location not available')),
+                        const SnackBar(
+                            content: Text('User location not available')),
                       );
                     }
                   },
@@ -275,7 +274,6 @@ Future<void> _fetchRefillStations() async {
                 top: 128,
                 child: GestureDetector(
                   onTap: () {
-                    
                     Navigator.pop(context); // Close the dialog
                     _showGallonBottomSheet(station);
                   },
@@ -332,31 +330,35 @@ Future<void> _fetchRefillStations() async {
     final url = Uri.parse(
       'https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf6248a6164b7235ef4e3f860b56fb548d5a35&start=${start.longitude},${start.latitude}&end=${end.longitude},${end.latitude}',
     );
-  
+
     try {
       final response = await http.get(url);
-    
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final coords = data['features'][0]['geometry']['coordinates'] as List;
-    
-        List<LatLng> route = coords.map<LatLng>((c) => LatLng(c[1] as double, c[0] as double)).toList();
-    
+
+        List<LatLng> route = coords
+            .map<LatLng>((c) => LatLng(c[1] as double, c[0] as double))
+            .toList();
+
         if (mounted) {
           setState(() {
             _routePoints = route;
           });
-          
+
           // Center the map to show the route
           if (route.isNotEmpty) {
             _mapController.move(route[0], 15);
           }
         }
       } else {
-        debugPrint('Failed to get route: ${response.statusCode} - ${response.body}');
+        debugPrint(
+            'Failed to get route: ${response.statusCode} - ${response.body}');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to fetch route: ${response.statusCode}')),
+            SnackBar(
+                content: Text('Failed to fetch route: ${response.statusCode}')),
           );
         }
       }
@@ -394,8 +396,7 @@ Future<void> _fetchRefillStations() async {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  subdomains: const ['a', 'b', 'c'],
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 ),
                 // Route polyline - Fixed position in layer stack
                 if (_routePoints.isNotEmpty)
@@ -430,7 +431,8 @@ Future<void> _fetchRefillStations() async {
                           height: 30,
                           child: GestureDetector(
                             onTap: () => _showStationDialog(station),
-                            child: const Icon(Icons.location_pin, color: Colors.red, size: 30),
+                            child: const Icon(Icons.location_pin,
+                                color: Colors.red, size: 30),
                           ),
                         )),
                   ],
@@ -444,451 +446,459 @@ Future<void> _fetchRefillStations() async {
       // ),
     );
   }
-  
-void _showGallonBottomSheet(RefillingStation station) {
-  // Counter variables for each gallon type
-  int regularGallonCount = 0;
-  int dispenserGallonCount = 0;
-  int smallGallonCount = 0;
-  bool borrowGallon = false;
-  bool swapGallon = false;
-  
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          // Calculate total based on selections
-          double total = (regularGallonCount * (station.regularGallonPrice ?? 0)) +
-                        (dispenserGallonCount * (station.dispenserGallonPrice ?? 0)) +
-                        (smallGallonCount * (station.smallGallonPrice ?? 0));
-          
-          // Get screen dimensions for responsive layout
-          final screenWidth = MediaQuery.of(context).size.width;
-          final screenHeight = MediaQuery.of(context).size.height;
-          
-          // Create a list of available gallon widgets
-          List<Widget> gallonWidgets = [];
-          
-          // Add Regular Gallon if available
-          if (station.hasRegularGallon) {
-            gallonWidgets.add(
-              _buildGallonWidget(
-                context: context,
-                screenWidth: screenWidth,
-                screenHeight: screenHeight,
-                imagePath: 'assets/images/regular_gallon.png',
-                count: regularGallonCount,
-                price: station.regularGallonPrice,
-                title: 'Regular Gallon',
-                onIncrement: () {
-                  setState(() {
-                    regularGallonCount++;
-                  });
-                },
-                onDecrement: () {
-                  if (regularGallonCount > 0) {
+
+  void _showGallonBottomSheet(RefillingStation station) {
+    // Counter variables for each gallon type
+    int regularGallonCount = 0;
+    int dispenserGallonCount = 0;
+    int smallGallonCount = 0;
+    bool borrowGallon = false;
+    bool swapGallon = false;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // Calculate total based on selections
+            double total = (regularGallonCount *
+                    (station.regularGallonPrice ?? 0)) +
+                (dispenserGallonCount * (station.dispenserGallonPrice ?? 0)) +
+                (smallGallonCount * (station.smallGallonPrice ?? 0));
+
+            // Get screen dimensions for responsive layout
+            final screenWidth = MediaQuery.of(context).size.width;
+            final screenHeight = MediaQuery.of(context).size.height;
+
+            // Create a list of available gallon widgets
+            List<Widget> gallonWidgets = [];
+
+            // Add Regular Gallon if available
+            if (station.hasRegularGallon) {
+              gallonWidgets.add(
+                _buildGallonWidget(
+                  context: context,
+                  screenWidth: screenWidth,
+                  screenHeight: screenHeight,
+                  imagePath: 'assets/images/regular_gallon.png',
+                  count: regularGallonCount,
+                  price: station.regularGallonPrice,
+                  title: 'Regular Gallon',
+                  onIncrement: () {
                     setState(() {
-                      regularGallonCount--;
+                      regularGallonCount++;
                     });
-                  }
-                },
-              ),
-            );
-          }
-          
-          // Add Dispenser Gallon if available
-          if (station.hasDispenserGallon) {
-            gallonWidgets.add(
-              _buildGallonWidget(
-                context: context,
-                screenWidth: screenWidth,
-                screenHeight: screenHeight,
-                imagePath: 'assets/images/dispenser_gallon.png',
-                count: dispenserGallonCount,
-                price: station.dispenserGallonPrice,
-                title: 'Dispenser Gallon',
-                onIncrement: () {
-                  setState(() {
-                    dispenserGallonCount++;
-                  });
-                },
-                onDecrement: () {
-                  if (dispenserGallonCount > 0) {
+                  },
+                  onDecrement: () {
+                    if (regularGallonCount > 0) {
+                      setState(() {
+                        regularGallonCount--;
+                      });
+                    }
+                  },
+                ),
+              );
+            }
+
+            // Add Dispenser Gallon if available
+            if (station.hasDispenserGallon) {
+              gallonWidgets.add(
+                _buildGallonWidget(
+                  context: context,
+                  screenWidth: screenWidth,
+                  screenHeight: screenHeight,
+                  imagePath: 'assets/images/dispenser_gallon.png',
+                  count: dispenserGallonCount,
+                  price: station.dispenserGallonPrice,
+                  title: 'Dispenser Gallon',
+                  onIncrement: () {
                     setState(() {
-                      dispenserGallonCount--;
+                      dispenserGallonCount++;
                     });
-                  }
-                },
-              ),
-            );
-          }
-          
-          // Add Small Gallon if available
-          if (station.hasSmallGallon) {
-            gallonWidgets.add(
-              _buildGallonWidget(
-                context: context,
-                screenWidth: screenWidth,
-                screenHeight: screenHeight,
-                imagePath: 'assets/images/small_gallon.png',
-                count: smallGallonCount,
-                price: station.smallGallonPrice,
-                title: 'Small Gallon',
-                onIncrement: () {
-                  setState(() {
-                    smallGallonCount++;
-                  });
-                },
-                onDecrement: () {
-                  if (smallGallonCount > 0) {
+                  },
+                  onDecrement: () {
+                    if (dispenserGallonCount > 0) {
+                      setState(() {
+                        dispenserGallonCount--;
+                      });
+                    }
+                  },
+                ),
+              );
+            }
+
+            // Add Small Gallon if available
+            if (station.hasSmallGallon) {
+              gallonWidgets.add(
+                _buildGallonWidget(
+                  context: context,
+                  screenWidth: screenWidth,
+                  screenHeight: screenHeight,
+                  imagePath: 'assets/images/small_gallon.png',
+                  count: smallGallonCount,
+                  price: station.smallGallonPrice,
+                  title: 'Small Gallon',
+                  onIncrement: () {
                     setState(() {
-                      smallGallonCount--;
+                      smallGallonCount++;
                     });
-                  }
-                },
-              ),
-            );
-          }
-          
-          return Container(
-            width: screenWidth,
-            height: screenHeight * 0.5, // Take up about half the screen
-            clipBehavior: Clip.antiAlias,
-            decoration: const ShapeDecoration(
-              color: Color(0xFF455567),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(35),
-                  topRight: Radius.circular(35),
+                  },
+                  onDecrement: () {
+                    if (smallGallonCount > 0) {
+                      setState(() {
+                        smallGallonCount--;
+                      });
+                    }
+                  },
+                ),
+              );
+            }
+
+            return Container(
+              width: screenWidth,
+              height: screenHeight * 0.5, // Take up about half the screen
+              clipBehavior: Clip.antiAlias,
+              decoration: const ShapeDecoration(
+                color: Color(0xFF455567),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(35),
+                    topRight: Radius.circular(35),
+                  ),
                 ),
               ),
-            ),
-            child: Column(
-              children: [
-                // Handle bar at the top
-                Padding(
-                  padding: EdgeInsets.only(top: 5),
-                  child: Container(
-                    width: screenWidth * 0.3,
-                    height: 4,
-                    decoration: ShapeDecoration(
-                      color: Color(0xFFD9D9D9),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+              child: Column(
+                children: [
+                  // Handle bar at the top
+                  Padding(
+                    padding: EdgeInsets.only(top: 5),
+                    child: Container(
+                      width: screenWidth * 0.3,
+                      height: 4,
+                      decoration: ShapeDecoration(
+                        color: Color(0xFFD9D9D9),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                
-                // Title
-                Padding(
-                  padding: EdgeInsets.only(top: screenHeight * 0.02),
-                  child: const Text(
-                    'Gallon Available',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontFamily: 'Poppins',
-                      fontWeight: FontWeight.w800,
+
+                  // Title
+                  Padding(
+                    padding: EdgeInsets.only(top: screenHeight * 0.02),
+                    child: const Text(
+                      'Gallon Available',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                ),
-                
-                // Gallon Options - Automatically centered and spaced
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.05,
-                    vertical: screenHeight * 0.03,
+
+                  // Gallon Options - Automatically centered and spaced
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.05,
+                      vertical: screenHeight * 0.03,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: gallonWidgets,
+                    ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: gallonWidgets,
-                  ),
-                ),
-                
-                Spacer(),
-                
-                // Bottom Section - Checkboxes & Total
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: screenWidth * 0.04,
-                    bottom: screenHeight * 0.01,
-                  ),
-                  child: Row(
-                    children: [
-                      // Checkbox for "Borrow gallon"
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            borrowGallon = !borrowGallon;
-                            if (borrowGallon) swapGallon = false;
-                          });
-                        },
-                        child: Container(
-                          width: 14,
-                          height: 11,
-                          decoration: ShapeDecoration(
-                            color: borrowGallon ? Color(0xFFD9D9D9) : Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                width: 1,
-                                color: const Color(0xFF0F1A2B),
+
+                  Spacer(),
+
+                  // Bottom Section - Checkboxes & Total
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: screenWidth * 0.04,
+                      bottom: screenHeight * 0.01,
+                    ),
+                    child: Row(
+                      children: [
+                        // Checkbox for "Borrow gallon"
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              borrowGallon = !borrowGallon;
+                              if (borrowGallon) swapGallon = false;
+                            });
+                          },
+                          child: Container(
+                            width: 14,
+                            height: 11,
+                            decoration: ShapeDecoration(
+                              color: borrowGallon
+                                  ? Color(0xFFD9D9D9)
+                                  : Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(
+                                  width: 1,
+                                  color: const Color(0xFF0F1A2B),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(width: 5),
-                      Text(
-                        'Borrow gallon',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: const Color(0xFFE5E7EB),
-                          fontSize: 10,
-                          fontFamily: 'Roboto',
-                          fontWeight: FontWeight.w500,
-                          height: 2,
+                        SizedBox(width: 5),
+                        Text(
+                          'Borrow gallon',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: const Color(0xFFE5E7EB),
+                            fontSize: 10,
+                            fontFamily: 'Roboto',
+                            fontWeight: FontWeight.w500,
+                            height: 2,
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 15),
-                      // Checkbox for "Swap gallon"
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            swapGallon = !swapGallon;
-                            if (swapGallon) borrowGallon = false;
-                          });
-                        },
-                        child: Container(
-                          width: 14,
-                          height: 11,
-                          decoration: ShapeDecoration(
-                            color: swapGallon ? Color(0xFFD9D9D9) : Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                width: 1,
-                                color: const Color(0xFF0F1A2B),
+                        SizedBox(width: 15),
+                        // Checkbox for "Swap gallon"
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              swapGallon = !swapGallon;
+                              if (swapGallon) borrowGallon = false;
+                            });
+                          },
+                          child: Container(
+                            width: 14,
+                            height: 11,
+                            decoration: ShapeDecoration(
+                              color: swapGallon
+                                  ? Color(0xFFD9D9D9)
+                                  : Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(
+                                  width: 1,
+                                  color: const Color(0xFF0F1A2B),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(width: 5),
-                      Text(
-                        'Swap gallon',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: const Color(0xFFE5E7EB),
-                          fontSize: 10,
-                          fontFamily: 'Roboto',
-                          fontWeight: FontWeight.w500,
-                          height: 2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // Total and button row
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: screenWidth * 0.04,
-                    right: screenWidth * 0.04,
-                    bottom: screenHeight * 0.02,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Total
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'Total: ',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontFamily: 'Poppins',
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            TextSpan(
-                              text: '₱${total.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontFamily: 'Poppins',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      
-                      // Button - Review payment and address
-                      GestureDetector(
-                        onTap: () {
-                          // Implement review and payment logic
-                          if (regularGallonCount > 0 || dispenserGallonCount > 0 || smallGallonCount > 0) {
-                            // Navigate to payment page or handle payment logic
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => OrderForm()),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Please select at least one gallon'))
-                            );
-                          }
-                        },
-                        child: Container(
-                          width: screenWidth * 0.48,
-                          height: 33,
-                          decoration: ShapeDecoration(
-                            color: const Color(0xFF0F1A2B),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Review payment and address',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontFamily: 'Poppins',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
+                        SizedBox(width: 5),
+                        Text(
+                          'Swap gallon',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: const Color(0xFFE5E7EB),
+                            fontSize: 10,
+                            fontFamily: 'Roboto',
+                            fontWeight: FontWeight.w500,
+                            height: 2,
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+
+                  // Total and button row
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: screenWidth * 0.04,
+                      right: screenWidth * 0.04,
+                      bottom: screenHeight * 0.02,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Total
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'Total: ',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontFamily: 'Poppins',
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              TextSpan(
+                                text: '₱${total.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontFamily: 'Poppins',
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+
+                        // Button - Review payment and address
+                        GestureDetector(
+                          onTap: () {
+                            // Implement review and payment logic
+                            if (regularGallonCount > 0 ||
+                                dispenserGallonCount > 0 ||
+                                smallGallonCount > 0) {
+                              // Navigate to payment page or handle payment logic
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => OrderForm()),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(
+                                          'Please select at least one gallon')));
+                            }
+                          },
+                          child: Container(
+                            width: screenWidth * 0.48,
+                            height: 33,
+                            decoration: ShapeDecoration(
+                              color: const Color(0xFF0F1A2B),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Review payment and address',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontFamily: 'Poppins',
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
 // Helper method to build gallon widget
-Widget _buildGallonWidget({
-  required BuildContext context,
-  required double screenWidth,
-  required double screenHeight,
-  required String imagePath,
-  required int count,
-  required double? price,
-  required String title,
-  required VoidCallback onIncrement,
-  required VoidCallback onDecrement,
-}) {
-  return Column(
-    children: [
-      // Image container
-      Container(
-        width: screenWidth * 0.29,
-        height: screenHeight * 0.20,
-        decoration: ShapeDecoration(
-          color: const Color(0xFF1F2937),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+  Widget _buildGallonWidget({
+    required BuildContext context,
+    required double screenWidth,
+    required double screenHeight,
+    required String imagePath,
+    required int count,
+    required double? price,
+    required String title,
+    required VoidCallback onIncrement,
+    required VoidCallback onDecrement,
+  }) {
+    return Column(
+      children: [
+        // Image container
+        Container(
+          width: screenWidth * 0.29,
+          height: screenHeight * 0.20,
+          decoration: ShapeDecoration(
+            color: const Color(0xFF1F2937),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+          ),
+          child: Image.asset(
+            imagePath,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              debugPrint('Error loading image: $error');
+              return Text('Image failed to load');
+            },
           ),
         ),
-        child: Image.asset(
-          imagePath,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('Error loading image: $error');
-            return Text('Image failed to load');
-          },
-        ),
-      ),
-      
-      // Counter
-      Container(
-        width: screenWidth * 0.18,
-        height: screenHeight * 0.024,
-        margin: EdgeInsets.only(top: 8),
-        decoration: ShapeDecoration(
-          color: const Color(0xFFD9D9D9),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+
+        // Counter
+        Container(
+          width: screenWidth * 0.18,
+          height: screenHeight * 0.024,
+          margin: EdgeInsets.only(top: 8),
+          decoration: ShapeDecoration(
+            color: const Color(0xFFD9D9D9),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Decrement button
+              GestureDetector(
+                onTap: onDecrement,
+                child: Container(
+                  width: screenWidth * 0.05,
+                  alignment: Alignment.center,
+                  child: Text('-', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+              // Counter
+              Text(
+                '$count',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 10,
+                  fontFamily: 'Righteous',
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              // Increment button
+              GestureDetector(
+                onTap: onIncrement,
+                child: Container(
+                  width: screenWidth * 0.05,
+                  alignment: Alignment.center,
+                  child: Text('+', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+            ],
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Decrement button
-            GestureDetector(
-              onTap: onDecrement,
-              child: Container(
-                width: screenWidth * 0.05,
-                alignment: Alignment.center,
-                child: Text('-', style: TextStyle(fontSize: 16)),
-              ),
-            ),
-            // Counter
-            Text(
-              '$count',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 10,
-                fontFamily: 'Righteous',
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            // Increment button
-            GestureDetector(
-              onTap: onIncrement,
-              child: Container(
-                width: screenWidth * 0.05,
-                alignment: Alignment.center,
-                child: Text('+', style: TextStyle(fontSize: 16)),
-              ),
-            ),
-          ],
+
+        // Price
+        SizedBox(height: 5),
+        Text(
+          '₱${price?.toStringAsFixed(2) ?? '0.00'}',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: const Color(0xFFE5E7EB),
+            fontSize: 10,
+            fontFamily: 'Roboto',
+            fontWeight: FontWeight.w500,
+            height: 2,
+          ),
         ),
-      ),
-      
-      // Price
-      SizedBox(height: 5),
-      Text(
-        '₱${price?.toStringAsFixed(2) ?? '0.00'}',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: const Color(0xFFE5E7EB),
-          fontSize: 10,
-          fontFamily: 'Roboto',
-          fontWeight: FontWeight.w500,
-          height: 2,
+
+        // Title
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: const Color(0xFFE5E7EB),
+            fontSize: 10,
+            fontFamily: 'Roboto',
+            fontWeight: FontWeight.w500,
+            height: 2,
+          ),
         ),
-      ),
-      
-      // Title
-      Text(
-        title,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: const Color(0xFFE5E7EB),
-          fontSize: 10,
-          fontFamily: 'Roboto',
-          fontWeight: FontWeight.w500,
-          height: 2,
-        ),
-      ),
-    ],
-  );
-}
-  
+      ],
+    );
+  }
 }

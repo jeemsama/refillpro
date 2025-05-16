@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'register_phone.dart';
+import 'register_email.dart';
 
 class Onboarding extends StatefulWidget {
   const Onboarding({super.key});

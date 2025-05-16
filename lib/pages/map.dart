@@ -113,7 +113,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _fetchRefillStations() async {
-    final url = Uri.parse('http://192.168.1.43:8000/api/v1/refill-stations');
+    final url = Uri.parse('http://192.168.1.7:8000/api/v1/refill-stations');
     try {
       final response = await http.get(url);
 
@@ -740,21 +740,21 @@ class _MapPageState extends State<MapPage> {
                         GestureDetector(
                           onTap: () {
                             // Implement review and payment logic
-                            if (regularGallonCount > 0 ||
-                                dispenserGallonCount > 0 ||
-                                smallGallonCount > 0) {
+                            // if (regularGallonCount > 0 ||
+                            //     dispenserGallonCount > 0 ||
+                            //     smallGallonCount > 0) {
                               // Navigate to payment page or handle payment logic
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                     builder: (context) => OrderForm()),
                               );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(
-                                          'Please select at least one gallon')));
-                            }
+                          //   } else {
+                          //     ScaffoldMessenger.of(context).showSnackBar(
+                          //         SnackBar(
+                          //             content: Text(
+                          //                 'Please select at least one gallon')));
+                          //   }
                           },
                           child: Container(
                             width: screenWidth * 0.48,

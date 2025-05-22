@@ -11,18 +11,19 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  image_picker: ^1.0.4
   flutter_map: ^8.1.1
   latlong2: ^0.9.1
   location: ^8.0.0
-  geolocator: ^13.0.4
-  permission_handler: ^11.4.0
+  geolocator: ^14.0.0
+  permission_handler: ^12.0.0+1
   http: ^1.3.0
   logging: ^1.3.0
   cupertino_icons: ^1.0.8 # Ensure this is correctly aligned and not commented out
   shared_preferences: ^2.5.3
   logger: ^2.5.0
   convert: ^3.1.2
-  intl: ^0.18.0   # or whatever the latest version is
+  intl: ^0.20.2   # or whatever the latest version is
 
 
 dev_dependencies:

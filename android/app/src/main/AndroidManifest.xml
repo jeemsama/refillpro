@@ -2,13 +2,16 @@
     <!-- Permissions and features should be inside the <manifest> tag, but outside <application> -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-feature android:name="android.hardware.location.gps" android:required="true"/>
 
     <application
         android:label="refillproo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true"
         
         <activity
             android:name=".MainActivity"

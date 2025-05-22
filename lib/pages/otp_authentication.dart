@@ -17,20 +17,80 @@ class OtpAuthentication extends StatefulWidget {
 }
 
 class _OtpAuthenticationState extends State<OtpAuthentication> {
+  late Timer _resendTimer;
+  int _secondsRemaining = 30;
   final List<TextEditingController> _otpControllers =
       List.generate(4, (_) => TextEditingController());
   bool _isLoading = false;
+  bool _rememberDevice = true;
+  
 
   String get _baseUrl {
-    return 'http://192.168.1.7:8000';
+    return 'http://192.168.1.6:8000';
   }
 
   @override
   void dispose() {
+    _resendTimer.cancel();
     for (var c in _otpControllers) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _startResendTimer();
+  }
+
+  void _startResendTimer() {
+    _secondsRemaining = 15;
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsRemaining == 0) {
+        timer.cancel();
+        setState(() {});
+      } else {
+        setState(() {
+          _secondsRemaining--;
+        });
+      }
+    });
+  }
+
+  Future<void> _resendOtp() async {
+    final url = Uri.parse('$_baseUrl/api/customer/send-otp');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'email': widget.email}),
+      );
+
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('OTP resent successfully')),
+        );
+        _resendTimer.cancel(); // Stop existing timer
+        _startResendTimer();   // Restart timer
+      } else {
+        final err = jsonDecode(response.body);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(err['message'] ?? 'Failed to resend OTP')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   Future<void> _verifyOtp() async {
@@ -65,10 +125,12 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
         if (token != null) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('customer_token', token);
+          await prefs.setBool('remember_device', _rememberDevice);
           if (!mounted) return;
-          Navigator.pushReplacement(
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const HomePage()),
+            (Route<dynamic> route) => false,
           );
         } else {
           if (!mounted) return;
@@ -175,6 +237,29 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
                 ),
               ),
               SizedBox(height: height * 0.02),
+              TextButton(
+                onPressed: _secondsRemaining == 0 ? _resendOtp : null,
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(
+                  _secondsRemaining == 0 ? 'Resend Code' : 'Resend available in $_secondsRemaining s',
+                  ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Checkbox(
+                    value: _rememberDevice,
+                    onChanged: (value) {
+                      setState(() {
+                        _rememberDevice = value!;
+                      });
+                    },
+                  ),
+                  const Text('Remember this device', style: TextStyle(color: Colors.white)),
+                ],
+              ),
               Align(
                 alignment: Alignment.centerRight,
                 child: SizedBox(

@@ -42,7 +42,7 @@ class _OnboardingState extends State<Onboarding> {
         curve: Curves.ease,
       );
     } else {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const RegisterEmail()),
       );

@@ -113,7 +113,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _fetchRefillStations() async {
-    final url = Uri.parse('http://192.168.1.7:8000/api/v1/refill-stations');
+    final url = Uri.parse('http://192.168.1.6:8000/api/v1/refill-stations');
     try {
       final response = await http.get(url);
 

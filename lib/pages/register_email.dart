@@ -17,7 +17,7 @@ class _RegisterEmailState extends State<RegisterEmail> {
   bool _isLoading = false;
 
   String get _baseUrl {
-      return 'http://192.168.1.7:8000';
+      return 'http://192.168.1.6:8000';
   }
 
   Future<void> _sendOtp() async {

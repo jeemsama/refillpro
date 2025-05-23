@@ -16,9 +16,8 @@ class _RegisterEmailState extends State<RegisterEmail> {
   final TextEditingController _emailController = TextEditingController();
   bool _isLoading = false;
 
-  String get _baseUrl {
-      return 'http://192.168.1.6:8000';
-  }
+  // No trailing slash!
+  static const String _baseUrl = 'http://192.168.1.6:8000';
 
   Future<void> _sendOtp() async {
     final email = _emailController.text.trim();
@@ -110,8 +109,6 @@ class _RegisterEmailState extends State<RegisterEmail> {
                 ),
               ),
               SizedBox(height: height * 0.04),
-
-              // Email input field
               Container(
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -129,8 +126,6 @@ class _RegisterEmailState extends State<RegisterEmail> {
                 ),
               ),
               SizedBox(height: height * 0.02),
-
-              // Send OTP button
               Align(
                 alignment: Alignment.centerRight,
                 child: SizedBox(

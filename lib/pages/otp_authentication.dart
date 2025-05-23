@@ -1,15 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'home.dart';
 
 class OtpAuthentication extends StatefulWidget {
   final String email;
-
   const OtpAuthentication({super.key, required this.email});
 
   @override
@@ -17,16 +18,18 @@ class OtpAuthentication extends StatefulWidget {
 }
 
 class _OtpAuthenticationState extends State<OtpAuthentication> {
+  static const String _baseUrl = 'http://192.168.1.6:8000';
+
   late Timer _resendTimer;
-  int _secondsRemaining = 30;
-  final List<TextEditingController> _otpControllers =
-      List.generate(4, (_) => TextEditingController());
+  int _secondsRemaining = 15;
+  final _otpControllers = List.generate(4, (_) => TextEditingController());
   bool _isLoading = false;
   bool _rememberDevice = true;
-  
 
-  String get _baseUrl {
-    return 'http://192.168.1.6:8000';
+  @override
+  void initState() {
+    super.initState();
+    _startResendTimer();
   }
 
   @override
@@ -38,29 +41,19 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
     super.dispose();
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _startResendTimer();
-  }
-
   void _startResendTimer() {
     _secondsRemaining = 15;
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining == 0) {
         timer.cancel();
-        setState(() {});
       } else {
-        setState(() {
-          _secondsRemaining--;
-        });
+        setState(() => _secondsRemaining--);
       }
     });
   }
 
   Future<void> _resendOtp() async {
     final url = Uri.parse('$_baseUrl/api/customer/send-otp');
-
     try {
       final response = await http.post(
         url,
@@ -76,8 +69,7 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('OTP resent successfully')),
         );
-        _resendTimer.cancel(); // Stop existing timer
-        _startResendTimer();   // Restart timer
+        _startResendTimer();
       } else {
         final err = jsonDecode(response.body);
         if (!mounted) return;
@@ -104,8 +96,8 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
     }
 
     setState(() => _isLoading = true);
-    final url = Uri.parse('$_baseUrl/api/customer/verify-otp');
 
+    final url = Uri.parse('$_baseUrl/api/customer/verify-otp');
     try {
       final response = await http
           .post(
@@ -119,21 +111,30 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
           .timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final token = data['token'] as String?;
+
+        // Extract the customer ID and token
+        final customerId = (data['user'] as Map<String, dynamic>)['id'] as int;
+        final token      = data['token']               as String?;
+
         if (token != null) {
           final prefs = await SharedPreferences.getInstance();
+
+          // Persist both ID & token
+          await prefs.setInt   ('customer_id',   customerId);
           await prefs.setString('customer_token', token);
-          await prefs.setBool('remember_device', _rememberDevice);
+          await prefs.setBool  ('remember_device', _rememberDevice);
+
           if (!mounted) return;
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const HomePage()),
-            (Route<dynamic> route) => false,
+            (route) => false,
           );
         } else {
-          if (!mounted) return;
+          // Should never happen, but just in case:
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Token missing in response')),
           );
@@ -155,62 +156,52 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Network error. Check your connection.')),
       );
-    } on FormatException {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid response from server.')),
-      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
     } finally {
-      // ignore: control_flow_in_finally
-      if (!mounted) return;
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final height = MediaQuery.of(context).size.height;
+    final w = MediaQuery.of(context).size.width;
+    final h = MediaQuery.of(context).size.height;
 
     return Scaffold(
       backgroundColor: const Color(0xff52677D),
       body: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: width * 0.05),
+          padding: EdgeInsets.symmetric(horizontal: w * 0.05),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(height: height * 0.1),
+              SizedBox(height: h * 0.10),
               const Text(
                 'Check your email',
                 style: TextStyle(
                   color: Colors.white,
                   fontFamily: 'Poppins-ExtraBold',
-                  fontSize: 29.0,
+                  fontSize: 29,
                 ),
               ),
-              SizedBox(height: height * 0.01),
+              SizedBox(height: h * 0.01),
               Text(
                 'Enter the code we have sent to ${widget.email}.',
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white70,
-                  fontFamily: 'Poppins',
-                  fontSize: 16.0,
+                  fontSize: 16,
                 ),
-                textAlign: TextAlign.center,
               ),
-              SizedBox(height: height * 0.05),
+              SizedBox(height: h * 0.05),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  4,
-                  (i) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                children: List.generate(4, (i) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: SizedBox(
                       width: 50,
                       height: 50,
@@ -229,37 +220,39 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
                           border: InputBorder.none,
                         ),
                         onChanged: (val) {
-                          if (val.isNotEmpty) FocusScope.of(context).nextFocus();
+                          if (val.isNotEmpty) {
+                            FocusScope.of(context).nextFocus();
+                          }
                         },
                       ),
                     ),
-                  ),
-                ),
+                  );
+                }),
               ),
-              SizedBox(height: height * 0.02),
+              SizedBox(height: h * 0.02),
               TextButton(
                 onPressed: _secondsRemaining == 0 ? _resendOtp : null,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                ),
                 child: Text(
-                  _secondsRemaining == 0 ? 'Resend Code' : 'Resend available in $_secondsRemaining s',
-                  ),
+                  _secondsRemaining == 0
+                      ? 'Resend Code'
+                      : 'Resend available in $_secondsRemaining s',
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Checkbox(
                     value: _rememberDevice,
-                    onChanged: (value) {
-                      setState(() {
-                        _rememberDevice = value!;
-                      });
-                    },
+                    onChanged: (v) => setState(() => _rememberDevice = v!),
                   ),
-                  const Text('Remember this device', style: TextStyle(color: Colors.white)),
+                  const Text(
+                    'Remember this device',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ],
               ),
+              const Spacer(),
               Align(
                 alignment: Alignment.centerRight,
                 child: SizedBox(
@@ -284,12 +277,13 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
                           )
                         : const Icon(
                             Icons.arrow_forward,
-                            color: Colors.white,
                             size: 20,
+                            color: Colors.white,
                           ),
                   ),
                 ),
               ),
+              SizedBox(height: h * 0.05),
             ],
           ),
         ),

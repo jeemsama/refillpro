@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:refillproo/navs/bottom_nav.dart';
 import 'package:refillproo/navs/header.dart';
 import 'package:refillproo/pages/activity.dart';
 import 'package:refillproo/pages/map.dart';
 import 'package:refillproo/pages/profile.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -46,7 +44,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           Text(
             '${_greeting()},',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'PoppinsExtraBold'),
           ),
           const SizedBox(height: 4),
           Text(
@@ -281,66 +279,31 @@ class _HomePageState extends State<HomePage> {
       const ActivityPage(),
       Profile(),
     ];
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) async {
-        if (!didPop) {
-          final shouldExit = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Exit App'),
-              content: const Text('Do you want to exit the app?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Exit'),
-                ),
-              ],
-            ),
-          );
-
-          if (shouldExit == true) {
-            final prefs = await SharedPreferences.getInstance();
-            final remember = prefs.getBool('remember_device') ?? false;
-
-            if (!remember) {
-              await prefs.remove('customer_token');
-            }
-
-            if (!mounted) return;
-            SystemNavigator.pop(); // ✅ actually exits the app
-          }
-        }
-      },
-      child: Scaffold(
-        appBar: _selectedIndex != 3
-            ? const PreferredSize(
-                preferredSize: Size.fromHeight(kToolbarHeight),
-                child: AppHeader(),
-              )
-            : null,
-        body: Stack(
-          children: [
-            IndexedStack(
-              index: _selectedIndex,
-              children: screens,
-            ),
-            if (_selectedIndex != 3)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 30,
-                child: CustomBottomNavBar(
-                  selectedIndex: _selectedIndex,
-                  onItemTapped: _onItemTapped,
-                ),
+    return Scaffold(
+      backgroundColor: Color(0xFFF1EFEC),
+      appBar: _selectedIndex != 3
+          ? const PreferredSize(
+              preferredSize: Size.fromHeight(kToolbarHeight),
+              child: AppHeader(),
+            )
+          : null,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _selectedIndex,
+            children: screens,
+          ),
+          if (_selectedIndex != 3)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 30,
+              child: CustomBottomNavBar(
+                selectedIndex: _selectedIndex,
+                onItemTapped: _onItemTapped,
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

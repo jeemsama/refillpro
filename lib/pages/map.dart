@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:http/http.dart' as http;
-import 'package:refillproo/pages/order_form.dart';
+// import 'package:refillproo/models/order.dart';
+// import 'package:refillproo/models/order.dart';
+import 'package:refillproo/pages/order_form.dart'; // Ensure this import is correct and the OrderForm class exists in this file
 import 'dart:convert';
 import '../models/refilling_station.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+import '../models/owner_shop_details.dart';  // ← add this import
+import 'package:shared_preferences/shared_preferences.dart';
+
+// import 'package:shared_preferences/shared_preferences.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -18,9 +26,10 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   LatLng? _userLocation;
+  String? _userAddress;
   final MapController _mapController = MapController();
   List<RefillingStation> _stations = [];
-  List<LatLng> _routePoints = []; // Added missing declaration
+  List<LatLng> _routePoints = [];
 
   @override
   void initState() {
@@ -29,59 +38,79 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _determinePosition() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _showLocationServiceDialog();
-      return;
+    // 1) Ensure GPS is enabled
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      return _showLocationServiceDialog();
     }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        _showLocationPermissionDialog();
-        return;
+    // 2) Request/check permission
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+      if (perm == LocationPermission.denied) {
+        return _showLocationPermissionDialog();
       }
     }
-
-    if (permission == LocationPermission.deniedForever) {
-      _showLocationPermissionDialog();
-      return;
+    if (perm == LocationPermission.deniedForever) {
+      return _showLocationPermissionDialog();
     }
-
-    final position = await Geolocator.getCurrentPosition(
+    // 3) Get current GPS coords
+    final pos = await Geolocator.getCurrentPosition(
         locationSettings:
             const LocationSettings(accuracy: LocationAccuracy.high));
+    final ll = LatLng(pos.latitude, pos.longitude);
+    setState(() => _userLocation = ll);
 
-    setState(() {
-      _userLocation = LatLng(position.latitude, position.longitude);
-      // If you want to include the _locationLoaded flag as in your old code
-      // _locationLoaded = true;
-    });
+    // 4) Reverse-geocode into street address
+    await _getAddressFor(ll);
 
-    // If you want to move the map to the user's location as in your old code
-    // mapController.move(_userLocation, 17.0);
-
+    // 5) Fetch your refill-station markers
     await _fetchRefillStations();
+  }
+
+  Future<void> _getAddressFor(LatLng ll) async {
+    try {
+      final placemarks =
+          await placemarkFromCoordinates(ll.latitude, ll.longitude);
+      final pm = placemarks.first;
+      setState(() {
+        _userAddress =
+            "${pm.street}, ${pm.locality}, ${pm.administrativeArea}";
+      });
+    } catch (e) {
+      debugPrint("Reverse‐geocode failed: $e");
+      setState(() => _userAddress = "Unknown location");
+    }
+  }
+
+  Future<void> _saveLocation() async {
+    if (_userLocation == null || _userAddress == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('saved_lat', _userLocation!.latitude);
+    await prefs.setDouble('saved_lng', _userLocation!.longitude);
+    await prefs.setString('saved_address', _userAddress!);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Location saved!')));
   }
 
   void _showLocationServiceDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Location Services Disabled"),
-        content: Text("Please enable location services to view your location."),
+      builder: (c) => AlertDialog(
+        title: const Text("Location Services Disabled"),
+        content:
+            const Text("Please enable location services to view your location."),
         actions: [
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await Geolocator.openLocationSettings();
+            onPressed: () {
+              Navigator.pop(c);
+              Geolocator.openLocationSettings();
             },
-            child: Text("Open Settings"),
+            child: const Text("Open Settings"),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("Cancel"),
+            onPressed: () => Navigator.pop(c),
+            child: const Text("Cancel"),
           ),
         ],
       ),
@@ -91,21 +120,21 @@ class _MapPageState extends State<MapPage> {
   void _showLocationPermissionDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Location Permission Denied"),
+      builder: (c) => AlertDialog(
+        title: const Text("Location Permission Denied"),
         content:
-            Text("Please grant location permission to view your location."),
+            const Text("Please grant location permission to view your location."),
         actions: [
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await openAppSettings();
+            onPressed: () {
+              Navigator.pop(c);
+              openAppSettings();
             },
-            child: Text("Open Settings"),
+            child: const Text("Open Settings"),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("Cancel"),
+            onPressed: () => Navigator.pop(c),
+            child: const Text("Cancel"),
           ),
         ],
       ),
@@ -149,165 +178,203 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  //Refilling station dialog style
-  Future<void> _showStationDialog(RefillingStation station) async {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(35)),
-        backgroundColor: const Color(0xFF0F1A2B),
-        child: SizedBox(
-          width: 363,
-          height: 206,
-          child: Stack(
-            children: [
-              // Station Name
-              Positioned(
-                left: 38,
-                top: 20,
-                child: SizedBox(
-                  width: 234,
-                  height: 20,
-                  child: Text(
-                    station.shopName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontFamily: 'Poppins',
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ),
-              // Address
-              Positioned(
-                left: 40,
-                top: 41,
+// Refilling station dialog style
+Future<void> _showStationDialog(RefillingStation station,) async {
+  showDialog(
+    context: context,
+    builder: (_) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(35)),
+      backgroundColor: const Color(0xFF0F1A2B),
+      child: SizedBox(
+        width: 363,
+        height: 206,
+        child: Stack(
+          children: [
+            // Station Name
+            Positioned(
+              left: 38,
+              top: 20,
+              child: SizedBox(
+                width: 280,
+                height: 25,
                 child: Text(
-                  station.address,
+                  station.shopName,
                   style: const TextStyle(
-                    color: Color(0xFFB2B2B2),
-                    fontSize: 15,
-                    fontFamily: 'Poppins',
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontFamily: 'PoppinsExtraBold',
                     fontWeight: FontWeight.w400,
                   ),
                 ),
               ),
-              // Shop Image - Circular
-              Positioned(
-                left: 38,
-                top: 71,
-                child: Container(
-                  width: 116,
-                  height: 110,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(86),
-                    ),
+            ),
+            // Address
+            Positioned(
+              left: 37,
+              top: 41,
+              child: Text(
+                station.address,
+                style: const TextStyle(
+                  color: Color(0xFFB2B2B2),
+                  fontSize: 15,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+                        // Address
+            Positioned(
+              left: 37,
+              top: 60,
+              child: Text(
+                'OPEN',
+                style: const TextStyle(
+                  color: Color.fromARGB(255, 9, 255, 0),
+                  fontSize: 12,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+
+            
+            // Shop Image
+            Positioned(
+              left: 38,
+              top: 83,
+              child: Container(
+                width: 100,
+                height: 94,
+                clipBehavior: Clip.antiAlias,
+                decoration: ShapeDecoration(
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(86),
                   ),
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: -17,
-                        top: 0,
-                        child: Container(
-                          width: 178.67,
-                          height: 134,
-                          decoration: BoxDecoration(
-                            image: DecorationImage(
-                              image: NetworkImage(station.shopPhoto),
-                              fit: BoxFit.cover,
-                            ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: -17,
+                      top: 0,
+                      child: Container(
+                        width: 178.67,
+                        height: 134,
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: NetworkImage(station.shopPhoto),
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Show Route Button
+            Positioned(
+              left: 182,
+              top: 82,
+              child: GestureDetector(
+                onTap: () {
+                  if (_userLocation != null) {
+                    _showRouteTo(LatLng(station.latitude, station.longitude));
+                    Navigator.pop(context);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('User location not available')),
+                    );
+                  }
+                },
+                child: Container(
+                  width: 139,
+                  height: 41,
+                  decoration: ShapeDecoration(
+                    color: const Color(0xFFD1CFC9),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Show route',
+                      style: TextStyle(
+                        color: Color(0xFF0F1A2B),
+                        fontSize: 16,
+                        fontFamily: 'PoppinsExtraBold',
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
               ),
-              // Show Route Button
-              Positioned(
-                left: 182,
-                top: 82,
-                child: GestureDetector(
-                  onTap: () {
-                    if (_userLocation != null) {
-                      _showRouteTo(LatLng(station.latitude, station.longitude));
-                      Navigator.pop(context);
-                    } else {
+            ),
+
+            // Inquire Button
+            Positioned(
+              left: 182,
+              top: 128,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  _fetchOwnerShopDetails(station.ownerId)
+                    .then((details) {
+                      final missingGallons = 
+                        !details.hasRegularGallon && !details.hasDispenserGallon;
+                      final missingSlots   = details.deliveryTimeSlots.isEmpty;
+                      final missingDays    = details.collectionDays.isEmpty;
+
+                      if (missingGallons || missingSlots || missingDays) {
+                        // ignore: use_build_context_synchronously
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Not yet available. Coming soon.')
+                          ),
+                        );
+                        return; // stop here
+                      }
+
+                      _showGallonBottomSheet(details, station);
+                    })
+                    .catchError((e) {
+                      // ignore: use_build_context_synchronously
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('User location not available')),
+                        SnackBar(content: Text('Not available. Coming soon.')),
                       );
-                    }
-                  },
-                  child: Container(
-                    width: 139,
-                    height: 41,
-                    decoration: ShapeDecoration(
-                      color: const Color(0xFFD1CFC9),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50),
-                      ),
+                    });
+                },
+                child: Container(
+                  width: 139,
+                  height: 41,
+                  decoration: ShapeDecoration(
+                    color: const Color(0xFFBDC4D4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(50),
                     ),
-                    child: Center(
-                      child: Text(
-                        'Show route',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Color(0xFF0F1A2B),
-                          fontSize: 16,
-                          fontFamily: 'Roboto',
-                          fontWeight: FontWeight.w900,
-                          height: 1.25,
-                        ),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Inquire',
+                      style: TextStyle(
+                        color: Color(0xFF0F1A2B),
+                        fontSize: 16,
+                        fontFamily: 'PoppinsExtraBold',
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
                 ),
               ),
-              // Inquire Button
-              Positioned(
-                left: 182,
-                top: 128,
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context); // Close the dialog
-                    _showGallonBottomSheet(station);
-                  },
-                  child: Container(
-                    width: 139,
-                    height: 41,
-                    decoration: ShapeDecoration(
-                      color: const Color(0xFFBDC4D4),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50),
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Inquire',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Color(0xFF0F1A2B),
-                          fontSize: 16,
-                          fontFamily: 'Roboto',
-                          fontWeight: FontWeight.w900,
-                          height: 1.25,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   // void _onTapNav(int index, BuildContext context) {
   //   switch (index) {
@@ -383,35 +450,37 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      // appBar: AppBar(title: const Text('Map')),
-      body: _userLocation != null
-          ? FlutterMap(
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: _userLocation != null
+      ? Stack(
+          children: [
+            // ——— Your existing map ———
+            FlutterMap(
               mapController: _mapController,
               options: MapOptions(
                 initialCenter: _userLocation!,
                 initialZoom: 19.0,
+                maxZoom: 25.0,
               ),
               children: [
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 ),
-                // Route polyline - Fixed position in layer stack
                 if (_routePoints.isNotEmpty)
                   PolylineLayer(
                     polylines: [
                       Polyline(
                         points: _routePoints,
                         color: const Color(0xFF034C53),
-                        strokeWidth: 5.0,
+                        strokeWidth: 9.0,
                       ),
                     ],
                   ),
                 MarkerLayer(
                   markers: [
-                    // User marker
+                    // user marker
                     Marker(
                       point: _userLocation!,
                       width: 20,
@@ -424,481 +493,340 @@ class _MapPageState extends State<MapPage> {
                         ),
                       ),
                     ),
-                    // Red markers for stations
+                    // station markers
                     ..._stations.map((station) => Marker(
                           point: LatLng(station.latitude, station.longitude),
                           width: 30,
                           height: 30,
                           child: GestureDetector(
                             onTap: () => _showStationDialog(station),
-                            child: const Icon(Icons.location_pin,
-                                color: Colors.red, size: 30),
+                            child: const Icon(
+                              Icons.location_pin,
+                              color: Colors.red,
+                              size: 30,
+                            ),
                           ),
                         )),
                   ],
                 ),
               ],
-            )
-          : const Center(child: CircularProgressIndicator()),
-      // bottomNavigationBar: BottomNavBar(
-      //   currentIndex: 1,
-      //   onTap: (index) => _onTapNav(index, context),
-      // ),
-    );
-  }
+            ),
 
-  void _showGallonBottomSheet(RefillingStation station) {
-    // Counter variables for each gallon type
-    int regularGallonCount = 0;
-    int dispenserGallonCount = 0;
-    int smallGallonCount = 0;
-    bool borrowGallon = false;
-    bool swapGallon = false;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            // Calculate total based on selections
-            double total = (regularGallonCount *
-                    (station.regularGallonPrice ?? 0)) +
-                (dispenserGallonCount * (station.dispenserGallonPrice ?? 0)) +
-                (smallGallonCount * (station.smallGallonPrice ?? 0));
-
-            // Get screen dimensions for responsive layout
-            final screenWidth = MediaQuery.of(context).size.width;
-            final screenHeight = MediaQuery.of(context).size.height;
-
-            // Create a list of available gallon widgets
-            List<Widget> gallonWidgets = [];
-
-            // Add Regular Gallon if available
-            if (station.hasRegularGallon) {
-              gallonWidgets.add(
-                _buildGallonWidget(
-                  context: context,
-                  screenWidth: screenWidth,
-                  screenHeight: screenHeight,
-                  imagePath: 'assets/images/regular_gallon.png',
-                  count: regularGallonCount,
-                  price: station.regularGallonPrice,
-                  title: 'Regular Gallon',
-                  onIncrement: () {
-                    setState(() {
-                      regularGallonCount++;
-                    });
-                  },
-                  onDecrement: () {
-                    if (regularGallonCount > 0) {
-                      setState(() {
-                        regularGallonCount--;
-                      });
-                    }
-                  },
+            // ——— Floating Address Bar ———
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Color(0xff0F1A2B).withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-              );
-            }
-
-            // Add Dispenser Gallon if available
-            if (station.hasDispenserGallon) {
-              gallonWidgets.add(
-                _buildGallonWidget(
-                  context: context,
-                  screenWidth: screenWidth,
-                  screenHeight: screenHeight,
-                  imagePath: 'assets/images/dispenser_gallon.png',
-                  count: dispenserGallonCount,
-                  price: station.dispenserGallonPrice,
-                  title: 'Dispenser Gallon',
-                  onIncrement: () {
-                    setState(() {
-                      dispenserGallonCount++;
-                    });
-                  },
-                  onDecrement: () {
-                    if (dispenserGallonCount > 0) {
-                      setState(() {
-                        dispenserGallonCount--;
-                      });
-                    }
-                  },
-                ),
-              );
-            }
-
-            // Add Small Gallon if available
-            if (station.hasSmallGallon) {
-              gallonWidgets.add(
-                _buildGallonWidget(
-                  context: context,
-                  screenWidth: screenWidth,
-                  screenHeight: screenHeight,
-                  imagePath: 'assets/images/small_gallon.png',
-                  count: smallGallonCount,
-                  price: station.smallGallonPrice,
-                  title: 'Small Gallon',
-                  onIncrement: () {
-                    setState(() {
-                      smallGallonCount++;
-                    });
-                  },
-                  onDecrement: () {
-                    if (smallGallonCount > 0) {
-                      setState(() {
-                        smallGallonCount--;
-                      });
-                    }
-                  },
-                ),
-              );
-            }
-
-            return Container(
-              width: screenWidth,
-              height: screenHeight * 0.5, // Take up about half the screen
-              clipBehavior: Clip.antiAlias,
-              decoration: const ShapeDecoration(
-                color: Color(0xFF455567),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(35),
-                    topRight: Radius.circular(35),
-                  ),
-                ),
-              ),
-              child: Column(
-                children: [
-                  // Handle bar at the top
-                  Padding(
-                    padding: EdgeInsets.only(top: 5),
-                    child: Container(
-                      width: screenWidth * 0.3,
-                      height: 4,
-                      decoration: ShapeDecoration(
-                        color: Color(0xFFD9D9D9),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.place, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _userAddress ?? 'Retrieving address…',
+                        style: const TextStyle(color: Colors.white),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.check, color: Colors.white),
+                      onPressed: _saveLocation,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        )
+      : const Center(child: CircularProgressIndicator()),
+  );
+}
+
+
+void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,) {
+  int regularGallon   = 0;
+  int dispenserGallon = 0;
+  bool borrowGallon   = false;
+  bool swapGallon     = false;
+
+  double getTotal() {
+    // base cost
+    double total = regularGallon * station.regularGallonPrice
+                 + dispenserGallon * station.dispenserGallonPrice;
+
+    // if borrowing, add ₱50 per gallon
+    if (borrowGallon) {
+      final totalGallons = regularGallon + dispenserGallon;
+      total += totalGallons * 50;
+    }
+
+    return total;
+  }
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (ctx, setState) {
+          return Container(
+            height: 515,
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: Color(0xFF455567),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
+            ),
+            child: Column(
+              children: [
+                // handle bar
+                Container(
+                  width: 129, height: 4,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD9D9D9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+
+                // title
+                const Text(
+                  'Select gallon',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontFamily: 'PoppinsExtraBold',
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                // gallon selectors
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Regular
+                    _buildGallonOption(
+                      image: 'images/regular_gallon.png',
+                      count: regularGallon,
+                      price: station.regularGallonPrice,
+                      label: 'Regular Gallon',
+                      onInc: () => setState(() => regularGallon++),
+                      onDec: () {
+                        if (regularGallon > 0) setState(() => regularGallon--);
+                      },
+                    ),
+
+                    // Dispenser
+                    _buildGallonOption(
+                      image: 'images/dispenser_gallon.png',
+                      count: dispenserGallon,
+                      price: station.dispenserGallonPrice,
+                      label: 'Dispenser Gallon',
+                      onInc: () => setState(() => dispenserGallon++),
+                      onDec: () {
+                        if (dispenserGallon > 0) setState(() => dispenserGallon--);
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 30),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: borrowGallon,
+                            onChanged: (v) => setState(() {
+                              borrowGallon = v!;
+                              if (borrowGallon) swapGallon = false;
+                            }),
+                            // ↓ make the checkbox compact
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 5),
+                          const Text(
+                            'Borrow gallon + 50',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: swapGallon,
+                            onChanged: (v) => setState(() {
+                              swapGallon = v!;
+                              if (swapGallon) borrowGallon = false;
+                            }),
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Swap gallon',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
 
-                  // Title
-                  Padding(
-                    padding: EdgeInsets.only(top: screenHeight * 0.02),
-                    child: const Text(
-                      'Gallon Available',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
+
+
+                const SizedBox(height: 10),
+                // total & next
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total: ₱${getTotal().toStringAsFixed(2)}',
+                      style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
-                        fontFamily: 'Poppins',
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ),
-
-                  // Gallon Options - Automatically centered and spaced
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.05,
-                      vertical: screenHeight * 0.03,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: gallonWidgets,
-                    ),
-                  ),
-
-                  Spacer(),
-
-                  // Bottom Section - Checkboxes & Total
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: screenWidth * 0.04,
-                      bottom: screenHeight * 0.01,
-                    ),
-                    child: Row(
-                      children: [
-                        // Checkbox for "Borrow gallon"
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              borrowGallon = !borrowGallon;
-                              if (borrowGallon) swapGallon = false;
-                            });
-                          },
-                          child: Container(
-                            width: 14,
-                            height: 11,
-                            decoration: ShapeDecoration(
-                              color: borrowGallon
-                                  ? Color(0xFFD9D9D9)
-                                  : Colors.transparent,
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                  width: 1,
-                                  color: const Color(0xFF0F1A2B),
-                                ),
-                              ),
-                            ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F1A2B),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        SizedBox(width: 5),
-                        Text(
-                          'Borrow gallon',
-                          textAlign: TextAlign.center,
+                        onPressed: () async {
+                          final totalGallons = regularGallon + dispenserGallon;
+                          if (totalGallons == 0 || (!borrowGallon && !swapGallon)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please select a gallon and tick one checkbox'),
+                              ),
+                            );
+                            return;
+                          }
+                      
+                          // 1️⃣ Load the saved customer_id
+                          final prefs = await SharedPreferences.getInstance();
+                          final customerId = prefs.getInt('customer_id');
+                          if (customerId == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please log in again.')),
+                            );
+                            return;
+                          }
+                      
+                          // 2️⃣ Navigate, passing the real customerId
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => OrderForm(
+                                shopName:         details.shopName,
+                                ownerName:        details.ownerName,
+                                ownerShopDetails: station,
+                                regularGallon:    regularGallon,
+                                dispenserGallon:  dispenserGallon,
+                                borrow:           borrowGallon,
+                                swap:             swapGallon,
+                                total:            getTotal(),
+                                stationId:        details.id,
+                                customerId:       customerId, // ← now the real ID
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'Next',
                           style: TextStyle(
-                            color: const Color(0xFFE5E7EB),
-                            fontSize: 10,
-                            fontFamily: 'Roboto',
-                            fontWeight: FontWeight.w500,
-                            height: 2,
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontFamily: 'Poppins',
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
-                        SizedBox(width: 15),
-                        // Checkbox for "Swap gallon"
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              swapGallon = !swapGallon;
-                              if (swapGallon) borrowGallon = false;
-                            });
-                          },
-                          child: Container(
-                            width: 14,
-                            height: 11,
-                            decoration: ShapeDecoration(
-                              color: swapGallon
-                                  ? Color(0xFFD9D9D9)
-                                  : Colors.transparent,
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                  width: 1,
-                                  color: const Color(0xFF0F1A2B),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 5),
-                        Text(
-                          'Swap gallon',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: const Color(0xFFE5E7EB),
-                            fontSize: 10,
-                            fontFamily: 'Roboto',
-                            fontWeight: FontWeight.w500,
-                            height: 2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
 
-                  // Total and button row
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: screenWidth * 0.04,
-                      right: screenWidth * 0.04,
-                      bottom: screenHeight * 0.02,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Total
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: 'Total: ',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'Poppins',
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              TextSpan(
-                                text: '₱${total.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'Poppins',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
 
-                        // Button - Review payment and address
-                        GestureDetector(
-                          onTap: () {
-                            // Implement review and payment logic
-                            // if (regularGallonCount > 0 ||
-                            //     dispenserGallonCount > 0 ||
-                            //     smallGallonCount > 0) {
-                              // Navigate to payment page or handle payment logic
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => OrderForm()),
-                              );
-                          //   } else {
-                          //     ScaffoldMessenger.of(context).showSnackBar(
-                          //         SnackBar(
-                          //             content: Text(
-                          //                 'Please select at least one gallon')));
-                          //   }
-                          },
-                          child: Container(
-                            width: screenWidth * 0.48,
-                            height: 33,
-                            decoration: ShapeDecoration(
-                              color: const Color(0xFF0F1A2B),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Review payment and address',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontFamily: 'Poppins',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
-// Helper method to build gallon widget
-  Widget _buildGallonWidget({
-    required BuildContext context,
-    required double screenWidth,
-    required double screenHeight,
-    required String imagePath,
+  /// extracted to keep above cleaner
+  Widget _buildGallonOption({
+    required String image,
     required int count,
-    required double? price,
-    required String title,
-    required VoidCallback onIncrement,
-    required VoidCallback onDecrement,
+    required double price,
+    required String label,
+    required VoidCallback onInc,
+    required VoidCallback onDec,
   }) {
     return Column(
       children: [
-        // Image container
         Container(
-          width: screenWidth * 0.29,
-          height: screenHeight * 0.20,
-          decoration: ShapeDecoration(
+          width: 120, height: 164,
+          decoration: BoxDecoration(
             color: const Color(0xFF1F2937),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
+            borderRadius: BorderRadius.circular(15),
           ),
-          child: Image.asset(
-            imagePath,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              debugPrint('Error loading image: $error');
-              return Text('Image failed to load');
-            },
-          ),
+          padding: const EdgeInsets.all(10),
+          child: Image.asset(image, fit: BoxFit.contain),
         ),
-
-        // Counter
+        const SizedBox(height: 6),
         Container(
-          width: screenWidth * 0.18,
-          height: screenHeight * 0.024,
-          margin: EdgeInsets.only(top: 8),
-          decoration: ShapeDecoration(
+          width: 100, height: 30,
+          decoration: BoxDecoration(
             color: const Color(0xFFD9D9D9),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Decrement button
-              GestureDetector(
-                onTap: onDecrement,
-                child: Container(
-                  width: screenWidth * 0.05,
-                  alignment: Alignment.center,
-                  child: Text('-', style: TextStyle(fontSize: 16)),
-                ),
-              ),
-              // Counter
-              Text(
-                '$count',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 10,
-                  fontFamily: 'Righteous',
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              // Increment button
-              GestureDetector(
-                onTap: onIncrement,
-                child: Container(
-                  width: screenWidth * 0.05,
-                  alignment: Alignment.center,
-                  child: Text('+', style: TextStyle(fontSize: 16)),
-                ),
-              ),
+              GestureDetector(onTap: onDec, child: const Icon(Icons.remove, size: 15)),
+              Text('$count', style: const TextStyle(fontWeight: FontWeight.bold)),
+              GestureDetector(onTap: onInc, child: const Icon(Icons.add, size: 15)),
             ],
           ),
-        ),
 
-        // Price
-        SizedBox(height: 5),
-        Text(
-          '₱${price?.toStringAsFixed(2) ?? '0.00'}',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: const Color(0xFFE5E7EB),
-            fontSize: 10,
-            fontFamily: 'Roboto',
-            fontWeight: FontWeight.w500,
-            height: 2,
-          ),
         ),
-
-        // Title
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: const Color(0xFFE5E7EB),
-            fontSize: 10,
-            fontFamily: 'Roboto',
-            fontWeight: FontWeight.w500,
-            height: 2,
-          ),
-        ),
+        const SizedBox(height: 6),
+        Text('₱${price.toStringAsFixed(2)}',
+            style: const TextStyle(color: Color(0xFFE5E7EB))),
+        Text(label, style: const TextStyle(color: Color(0xFFE5E7EB))),
       ],
     );
   }
+
+
+
+  Future<OwnerShopDetails> _fetchOwnerShopDetails(int ownerId) async {
+    final url = Uri.parse(
+      'http://192.168.1.6:8000/api/v1/shop-details/owner/$ownerId',
+    );
+    final resp = await http.get(url, headers: {
+      'Accept': 'application/json',
+    });
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body)['data'] as Map<String, dynamic>;
+      return OwnerShopDetails.fromJson(data);
+    }
+    throw Exception('Failed to load shop details (${resp.statusCode})');
+  }
+
+
+
 }

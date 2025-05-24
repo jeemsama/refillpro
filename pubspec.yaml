@@ -52,6 +52,7 @@ flutter:
     - images/location1.jpg
     - images/order_msg.png
     - images/logo2.png
+    - images/store_tag1.png
 
   fonts:
     - family: PoppinsExtraBold

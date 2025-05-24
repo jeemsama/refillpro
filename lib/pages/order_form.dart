@@ -23,6 +23,7 @@ class OrderForm extends StatefulWidget {
   final bool borrow;
   final bool swap;
   final double total;
+  final int shopId; // Add this parameter
 
   const OrderForm({
     super.key,
@@ -36,6 +37,7 @@ class OrderForm extends StatefulWidget {
     required this.borrow,
     required this.swap,
     required this.total,
+    required this.shopId, // Add this parameter
   });
 
   @override
@@ -503,9 +505,7 @@ Row(
     await ApiService.createOrder(newOrder);
     // optionally show a success toast/snackbar
     // ignore: use_build_context_synchronously
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Order placed!')),
-    );
+
   } catch (e) {
     // ignore: use_build_context_synchronously
     ScaffoldMessenger.of(context).showSnackBar(

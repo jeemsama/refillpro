@@ -1,4 +1,6 @@
 class OwnerShopDetails {
+
+  final int id;
   final List<String> deliveryTimeSlots;
   final List<String> collectionDays;
   final bool hasRegularGallon;
@@ -7,6 +9,8 @@ class OwnerShopDetails {
   final double dispenserGallonPrice;
 
   OwnerShopDetails({
+
+    required this.id,
     required this.deliveryTimeSlots,
     required this.collectionDays,
     required this.hasRegularGallon,
@@ -32,6 +36,8 @@ class OwnerShopDetails {
     }
 
     return OwnerShopDetails(
+
+      id:                json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()),
       deliveryTimeSlots: toStringList(json['delivery_time_slots']),
       collectionDays:    toStringList(json['collection_days']),
       hasRegularGallon:    json['has_regular_gallon'] == true,

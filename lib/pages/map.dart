@@ -141,42 +141,34 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  Future<void> _fetchRefillStations() async {
-    final url = Uri.parse('http://192.168.1.6:8000/api/v1/refill-stations');
-    try {
-      final response = await http.get(url);
-
-      // Print full response for debugging
-      debugPrint("Response status: ${response.statusCode}");
-      debugPrint("Raw response: ${response.body}");
-      debugPrint("Rendering ${_stations.length} station markers");
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-
-        // Print the first item to see its structure
-        if (data.isNotEmpty) {
-          debugPrint("First item structure: ${json.encode(data[0])}");
-        }
-
-        setState(() {
-          try {
-            _stations =
-                data.map((json) => RefillingStation.fromJson(json)).toList();
-            debugPrint("Successfully parsed ${_stations.length} stations");
-          } catch (e) {
-            debugPrint("Error parsing JSON to RefillingStation objects: $e");
-            // Continue with empty list
-            _stations = [];
-          }
-        });
-      } else {
-        throw Exception('Failed to load stations: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint("Error fetching stations: $e");
+Future<void> _fetchRefillStations() async {
+  final url = Uri.parse('http://192.168.1.6:8000/api/v1/refill-stations');
+  try {
+    final response = await http.get(
+      url,
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load stations (${response.statusCode})');
     }
+
+    final decoded = json.decode(response.body);
+    // handle both: plain List or { data: List }
+    final List<dynamic> list = decoded is List
+        ? decoded
+        : (decoded['data'] as List<dynamic>);
+
+    setState(() {
+      _stations = list
+          .map((item) => RefillingStation.fromJson(item as Map<String, dynamic>))
+          .toList();
+    });
+    debugPrint('Stations loaded: ${_stations.map((s) => s.id).join(', ')}');
+  } catch (e) {
+    debugPrint('Error fetching stations: $e');
   }
+}
+
 
 // Refilling station dialog style
 Future<void> _showStationDialog(RefillingStation station,) async {
@@ -500,10 +492,10 @@ Widget build(BuildContext context) {
                           height: 30,
                           child: GestureDetector(
                             onTap: () => _showStationDialog(station),
-                            child: const Icon(
-                              Icons.location_pin,
-                              color: Colors.red,
-                              size: 30,
+                            child: Image.asset(
+                              'images/store_tag1.png', // Replace with the correct path to your image
+                              width: 60,
+                              height: 60,
                             ),
                           ),
                         )),
@@ -737,8 +729,9 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
                                 borrow:           borrowGallon,
                                 swap:             swapGallon,
                                 total:            getTotal(),
-                                stationId:        details.id,
+                                shopId:           station.id,  
                                 customerId:       customerId, // ← now the real ID
+                                stationId:        station.id, // ← added the required argument
                               ),
                             ),
                           );

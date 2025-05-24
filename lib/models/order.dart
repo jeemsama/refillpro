@@ -91,18 +91,17 @@ class Order {
   }
 
   /// Convert an Order to JSON for creating/updating via your API.
-  Map<String, dynamic> toJson() => {
-        'shop_name'     : shopName,
-        'customer_id'    : customerId,
-        'shop_id'        : shopId,
-        'ordered_by'     : orderedBy,        // ← add this
-        'phone'          : phone,            // ← and this
-        'time_slot'      : timeSlot,
-        'message'        : message,
-        'regular_count'  : regularCount,
-        'dispenser_count': dispenserCount,
-        'borrow'         : borrow,
-        'swap'           : swap,
-        'total'          : total,
-      };
+Map<String, dynamic> toJson() => {
+  'customer_id'    : customerId,     // must exist:customers,id
+  'shop_id'        : shopId,         // must exist:owner_shop_details,id
+  'ordered_by'     : orderedBy,      // required|string
+  'phone'          : phone,          // required|string
+  'time_slot'      : timeSlot,       // required|string
+  'message'        : message,        // nullable|string
+  'regular_count'  : regularCount,   // required|integer|min:0
+  'dispenser_count': dispenserCount, // required|integer|min:0
+  'borrow'         : borrow,         // required|boolean
+  'swap'           : swap,           // required|boolean
+  'total'          : total,          // required|numeric
+};
 }

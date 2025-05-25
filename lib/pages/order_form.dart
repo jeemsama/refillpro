@@ -488,6 +488,8 @@ Row(
     borrow:         widget.borrow,
     swap:           widget.swap,
     total:          widget.total,
+    latitude:       _markerPosition!.latitude,
+    longitude:      _markerPosition!.longitude,
   );
 
   // 2) show the “sent” overlay

@@ -17,6 +17,8 @@ class Order {
   final double   total;
   final DateTime placedAt;
   final String   status;
+  final double latitude;
+  final double longitude;
 
   Order({
     this.id               = '',
@@ -33,6 +35,8 @@ class Order {
     required this.borrow,
     required this.swap,
     required this.total,
+    required this.latitude,
+    required this.longitude,
     DateTime? placedAt,
     this.status          = 'pending',
   }) : placedAt = placedAt ?? DateTime.now();
@@ -83,6 +87,8 @@ class Order {
       borrow:         parseBool(j['borrow']),
       swap:           parseBool(j['swap']),
       total:          parseDouble(j['total']),
+      latitude:       parseDouble(j['latitude']),
+      longitude:      parseDouble(j['longitude']),
       placedAt:       j['created_at'] != null
                         ? DateTime.parse(j['created_at'] as String)
                         : DateTime.now(),
@@ -103,5 +109,7 @@ Map<String, dynamic> toJson() => {
   'borrow'         : borrow,         // required|boolean
   'swap'           : swap,           // required|boolean
   'total'          : total,          // required|numeric
+  'latitude'       : latitude,       // required|numeric
+  'longitude'      : longitude,      // required|numeric
 };
 }

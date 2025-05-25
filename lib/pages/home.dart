@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:refillproo/navs/bottom_nav.dart';
@@ -16,6 +19,35 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   int _selectedQuizOption = -1;
+  String? _customerName;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCustomerName();
+  }
+
+  Future<void> _fetchCustomerName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('customer_token');
+
+    if (token == null) return;
+
+    final response = await http.get(
+      Uri.parse('http://192.168.1.21:8000/api/customer/profile'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      setState(() {
+        _customerName = data['name'];
+      });
+    }
+  }
 
   final List<String> _tips = [
     'Drink at least 8 glasses of water each day to stay hydrated.',
@@ -43,8 +75,11 @@ class _HomePageState extends State<HomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${_greeting()},',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'PoppinsExtraBold'),
+            '${_greeting()}, ${_customerName ?? ''}',
+            style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'PoppinsExtraBold'),
           ),
           const SizedBox(height: 4),
           Text(
@@ -93,7 +128,10 @@ class _HomePageState extends State<HomePage> {
               children: [
                 const Text(
                   'Tip of the Day',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: Colors.white),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -147,7 +185,8 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 12),
           Text(
             title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
           ),
           const SizedBox(height: 6),
           Text(
@@ -168,7 +207,8 @@ class _HomePageState extends State<HomePage> {
         children: [
           _buildFeatureCard(
             title: 'Water Refill',
-            subtitle: 'Order purified or alkaline water for delivery or pickup.',
+            subtitle:
+                'Order purified or alkaline water for delivery or pickup.',
             icon: Icons.water_drop,
             baseColor: Colors.blue,
           ),
@@ -226,7 +266,10 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(width: 12),
               const Text(
                 'Quick Poll',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: Colors.white),
               ),
             ],
           ),
@@ -243,12 +286,16 @@ class _HomePageState extends State<HomePage> {
               return ChoiceChip(
                 label: Text(
                   options[i],
-                  style: TextStyle(color: selected ? Colors.orange.shade900 : const Color.fromARGB(255, 19, 19, 19)),
+                  style: TextStyle(
+                      color: selected
+                          ? Colors.orange.shade900
+                          : const Color.fromARGB(255, 19, 19, 19)),
                 ),
                 selected: selected,
                 backgroundColor: Colors.white.withAlpha(60),
                 selectedColor: Colors.white.withAlpha(150),
-                onSelected: (_) => setState(() => _selectedQuizOption = selected ? -1 : i),
+                onSelected: (_) =>
+                    setState(() => _selectedQuizOption = selected ? -1 : i),
               );
             }),
           ),

@@ -18,7 +18,7 @@ class OtpAuthentication extends StatefulWidget {
 }
 
 class _OtpAuthenticationState extends State<OtpAuthentication> {
-  static const String _baseUrl = 'http://192.168.1.6:8000';
+  static const String _baseUrl = 'http://192.168.1.21:8000';
 
   late Timer _resendTimer;
   int _secondsRemaining = 15;
@@ -117,15 +117,15 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
 
         // Extract the customer ID and token
         final customerId = (data['user'] as Map<String, dynamic>)['id'] as int;
-        final token      = data['token']               as String?;
+        final token = data['token'] as String?;
 
         if (token != null) {
           final prefs = await SharedPreferences.getInstance();
 
           // Persist both ID & token
-          await prefs.setInt   ('customer_id',   customerId);
+          await prefs.setInt('customer_id', customerId);
           await prefs.setString('customer_token', token);
-          await prefs.setBool  ('remember_device', _rememberDevice);
+          await prefs.setBool('remember_device', _rememberDevice);
 
           if (!mounted) return;
           Navigator.pushAndRemoveUntil(

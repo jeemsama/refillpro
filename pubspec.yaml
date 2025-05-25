@@ -26,7 +26,7 @@ dependencies:
   convert: ^3.1.2
   intl: ^0.18.0
   services:
-    path: ../services
+    path: C:/Users/CJ/Desktop/balagbag/services
 
 dev_dependencies:
   flutter_test:
@@ -45,6 +45,7 @@ flutter:
   assets:
     - images/
     - assets/images/
+    - images/default_profile.png
     - assets/images/regular_gallon.png
     - assets/images/dispenser_gallon.png
     - assets/images/small_gallon.png

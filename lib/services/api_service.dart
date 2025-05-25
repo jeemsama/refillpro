@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/order.dart';
 
 class ApiService {
-  static const _base = 'http://192.168.1.6:8000/api/v1';
+  static const _base = 'http://192.168.1.21:8000/api/v1';
 
   /// Create a new order
   static Future<Order> createOrder(Order o) async {
@@ -15,7 +15,7 @@ class ApiService {
       uri,
       headers: {
         'Content-Type': 'application/json',
-        'Accept'      : 'application/json',
+        'Accept': 'application/json',
       },
       body: jsonEncode(o.toJson()),
     );
@@ -30,11 +30,11 @@ class ApiService {
   static Future<List<Order>> fetchMyOrders(String customerId) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('customer_token');
-    final uri   = Uri.parse('$_base/orders?customer_id=$customerId');
-    final resp  = await http.get(
+    final uri = Uri.parse('$_base/orders?customer_id=$customerId');
+    final resp = await http.get(
       uri,
       headers: {
-        'Accept'       : 'application/json',
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
@@ -47,16 +47,17 @@ class ApiService {
 
   /// Fetch all orders for a given owner/shop ID
   static Future<List<Order>> fetchOwnerOrders(String ownerId) async {
-    final uri  = Uri.parse('$_base/orders?owner_id=$ownerId');
+    final uri = Uri.parse('$_base/orders?owner_id=$ownerId');
     final resp = await http.get(
       uri,
-      headers: {'Accept':'application/json'},
+      headers: {'Accept': 'application/json'},
     );
     if (resp.statusCode == 200) {
       final list = jsonDecode(resp.body)['data'] as List;
       return list.map((j) => Order.fromJson(j)).toList();
     }
-    throw Exception('Failed to fetch owner orders: ${resp.statusCode}\n${resp.body}');
+    throw Exception(
+        'Failed to fetch owner orders: ${resp.statusCode}\n${resp.body}');
   }
 
   /// Cancel an order by ID, with a reason
@@ -71,15 +72,16 @@ class ApiService {
     final resp = await http.post(
       uri,
       headers: {
-        'Content-Type' : 'application/json',
-        'Accept'       : 'application/json',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({'reason': reason}),
     );
 
     if (resp.statusCode != 200) {
-      throw Exception('Failed to cancel order: ${resp.statusCode}\n${resp.body}');
+      throw Exception(
+          'Failed to cancel order: ${resp.statusCode}\n${resp.body}');
     }
   }
 
@@ -95,13 +97,14 @@ class ApiService {
     final resp = await http.delete(
       uri,
       headers: {
-        'Accept'       : 'application/json',
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
 
     if (resp.statusCode != 200 && resp.statusCode != 204) {
-      throw Exception('Failed to delete order: ${resp.statusCode}\n${resp.body}');
+      throw Exception(
+          'Failed to delete order: ${resp.statusCode}\n${resp.body}');
     }
   }
 }

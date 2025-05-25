@@ -101,26 +101,37 @@ class _ActivityPageState extends State<ActivityPage>
               return Center(child: Text("Error: ${snapshot.error}"));
             }
             final orders = snapshot.data!;
-          return Column(
-            children: [
-              // we leave the header and tabs in the AppBar, so nothing else here
-              // Expand only the TabBarView so it scrolls under the pinned AppBar
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildOrderList(_filterByStatus(orders, 'pending'),
-                        'No pending orders.'),
-                    _buildOrderList(_filterByStatus(orders, 'completed'),
-                        'No completed orders.'),
-                    _buildOrderList(_filterByStatus(orders, 'cancelled'),
-                        'No cancelled orders.'),
-                  ],
+            return Column(
+              children: [
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // Wrap each list in RefreshIndicator:
+                      RefreshIndicator(
+                        onRefresh: _loadMyOrders,
+                        child: _buildOrderList(
+                            _filterByStatus(orders, 'pending'),
+                            'No pending orders.'),
+                      ),
+                      RefreshIndicator(
+                        onRefresh: _loadMyOrders,
+                        child: _buildOrderList(
+                            _filterByStatus(orders, 'completed'),
+                            'No completed orders.'),
+                      ),
+                      RefreshIndicator(
+                        onRefresh: _loadMyOrders,
+                        child: _buildOrderList(
+                            _filterByStatus(orders, 'cancelled'),
+                            'No cancelled orders.'),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          );
-          }
+              ],
+            );
+          },
         ),
       ),
     );

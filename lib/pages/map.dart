@@ -446,99 +446,111 @@ Future<void> _showStationDialog(RefillingStation station,) async {
 Widget build(BuildContext context) {
   return Scaffold(
     body: _userLocation != null
-      ? Stack(
-          children: [
-            // ——— Your existing map ———
-            FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _userLocation!,
-                initialZoom: 19.0,
-                maxZoom: 25.0,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                ),
-                if (_routePoints.isNotEmpty)
-                  PolylineLayer(
-                    polylines: [
-                      Polyline(
-                        points: _routePoints,
-                        color: const Color(0xFF034C53),
-                        strokeWidth: 9.0,
+      ? RefreshIndicator(
+          onRefresh: _fetchRefillStations, // only reload stations
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              SizedBox(
+                height: MediaQuery.of(context).size.height,
+                child: Stack(
+                  children: [
+                    // ——— Your existing map ———
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: _userLocation!,
+                        initialZoom: 19.0,
+                        maxZoom: 25.0,
                       ),
-                    ],
-                  ),
-                MarkerLayer(
-                  markers: [
-                    // user marker
-                    Marker(
-                      point: _userLocation!,
-                      width: 20,
-                      height: 20,
+                      children: [
+                        TileLayer(
+                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        ),
+                        if (_routePoints.isNotEmpty)
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: _routePoints,
+                                color: const Color(0xFF034C53),
+                                strokeWidth: 9.0,
+                              ),
+                            ],
+                          ),
+                        MarkerLayer(
+                          markers: [
+                            // user marker
+                            Marker(
+                              point: _userLocation!,
+                              width: 20,
+                              height: 20,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
+                              ),
+                            ),
+                            // station markers
+                            ..._stations.map((station) => Marker(
+                                  point: LatLng(station.latitude, station.longitude),
+                                  width: 30,
+                                  height: 30,
+                                  child: GestureDetector(
+                                    onTap: () => _showStationDialog(station),
+                                    child: Image.asset(
+                                      'images/store_tag1.png',
+                                      width: 60,
+                                      height: 60,
+                                    ),
+                                  ),
+                                )),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    // ——— Floating Address Bar ———
+                    Positioned(
+                      top: MediaQuery.of(context).padding.top + 10,
+                      left: 20,
+                      right: 20,
                       child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
                         decoration: BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          color: const Color(0xff0F1A2B).withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.place, color: Colors.white),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _userAddress ?? 'Retrieving address…',
+                                style: const TextStyle(color: Colors.white),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.check, color: Colors.white),
+                              onPressed: _saveLocation,
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    // station markers
-                    ..._stations.map((station) => Marker(
-                          point: LatLng(station.latitude, station.longitude),
-                          width: 30,
-                          height: 30,
-                          child: GestureDetector(
-                            onTap: () => _showStationDialog(station),
-                            child: Image.asset(
-                              'images/store_tag1.png', // Replace with the correct path to your image
-                              width: 60,
-                              height: 60,
-                            ),
-                          ),
-                        )),
-                  ],
-                ),
-              ],
-            ),
-
-            // ——— Floating Address Bar ———
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 10,
-              left: 20,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Color(0xff0F1A2B).withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.place, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _userAddress ?? 'Retrieving address…',
-                        style: const TextStyle(color: Colors.white),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.check, color: Colors.white),
-                      onPressed: _saveLocation,
-                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         )
       : const Center(child: CircularProgressIndicator()),
   );
 }
+
 
 
 void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,) {

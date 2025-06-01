@@ -21,7 +21,7 @@ class _ActivityPageState extends State<ActivityPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadMyOrders();
   }
 
@@ -78,8 +78,11 @@ class _ActivityPageState extends State<ActivityPage>
                         indicatorColor: Colors.black,
                         labelColor: Colors.black,
                         unselectedLabelColor: Colors.grey,
+                        labelStyle: const TextStyle(fontSize: 10),
+                        unselectedLabelStyle: const TextStyle(fontSize: 9),
                         tabs: const [
                           Tab(text: "Pending"),
+                          Tab(text: "Accepted"),
                           Tab(text: "Completed"),
                           Tab(text: "Cancelled"),
                         ],
@@ -114,6 +117,14 @@ class _ActivityPageState extends State<ActivityPage>
                             _filterByStatus(orders, 'pending'),
                             'No pending orders.'),
                       ),
+                      // Accepted
+                      RefreshIndicator(
+                        onRefresh: _loadMyOrders,
+                        child: _buildOrderList(
+                          _filterByStatus(orders, 'accepted'),
+                          'No accepted orders.',
+                        ),
+                      ),
                       RefreshIndicator(
                         onRefresh: _loadMyOrders,
                         child: _buildOrderList(
@@ -123,7 +134,7 @@ class _ActivityPageState extends State<ActivityPage>
                       RefreshIndicator(
                         onRefresh: _loadMyOrders,
                         child: _buildOrderList(
-                            _filterByStatus(orders, 'cancelled'),
+                            _filterByStatus(orders, 'declined'),
                             'No cancelled orders.'),
                       ),
                     ],

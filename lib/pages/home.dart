@@ -34,7 +34,7 @@ class _HomePageState extends State<HomePage> {
     if (token == null) return;
 
     final response = await http.get(
-      Uri.parse('http://192.168.1.21:8000/api/customer/profile'),
+      Uri.parse('http://192.168.1.6:8000/api/customer/profile'),
       headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',

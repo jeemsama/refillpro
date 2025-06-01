@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/order.dart';
 
 class ApiService {
-  static const _base = 'http://192.168.1.21:8000/api/v1';
+  static const _base = 'http://192.168.1.6:8000/api/v1';
 
   /// Create a new order
   static Future<Order> createOrder(Order o) async {

@@ -17,7 +17,7 @@ class _RegisterEmailState extends State<RegisterEmail> {
   bool _isLoading = false;
 
   // No trailing slash!
-  static const String _baseUrl = 'http://192.168.1.21:8000';
+  static const String _baseUrl = 'http://192.168.1.6:8000';
 
   Future<void> _sendOtp() async {
     final email = _emailController.text.trim();

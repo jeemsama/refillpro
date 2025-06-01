@@ -12,7 +12,7 @@ import 'dart:convert';
 import '../models/refilling_station.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../models/owner_shop_details.dart'; // ← add this import
+import '../models/owner_shop_details.dart';  // ← add this import
 import 'package:shared_preferences/shared_preferences.dart';
 
 // import 'package:shared_preferences/shared_preferences.dart';
@@ -73,7 +73,8 @@ class _MapPageState extends State<MapPage> {
           await placemarkFromCoordinates(ll.latitude, ll.longitude);
       final pm = placemarks.first;
       setState(() {
-        _userAddress = "${pm.street}, ${pm.locality}, ${pm.administrativeArea}";
+        _userAddress =
+            "${pm.street}, ${pm.locality}, ${pm.administrativeArea}";
       });
     } catch (e) {
       debugPrint("Reverse‐geocode failed: $e");
@@ -81,24 +82,24 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  Future<void> _saveLocation() async {
-    if (_userLocation == null || _userAddress == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('saved_lat', _userLocation!.latitude);
-    await prefs.setDouble('saved_lng', _userLocation!.longitude);
-    await prefs.setString('saved_address', _userAddress!);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Location saved!')));
-  }
+  // Future<void> _saveLocation() async {
+  //   if (_userLocation == null || _userAddress == null) return;
+  //   final prefs = await SharedPreferences.getInstance();
+  //   await prefs.setDouble('saved_lat', _userLocation!.latitude);
+  //   await prefs.setDouble('saved_lng', _userLocation!.longitude);
+  //   await prefs.setString('saved_address', _userAddress!);
+  //   if (!mounted) return;
+  //   ScaffoldMessenger.of(context)
+  //       .showSnackBar(const SnackBar(content: Text('Location saved!')));
+  // }
 
   void _showLocationServiceDialog() {
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text("Location Services Disabled"),
-        content: const Text(
-            "Please enable location services to view your location."),
+        content:
+            const Text("Please enable location services to view your location."),
         actions: [
           TextButton(
             onPressed: () {
@@ -121,8 +122,8 @@ class _MapPageState extends State<MapPage> {
       context: context,
       builder: (c) => AlertDialog(
         title: const Text("Location Permission Denied"),
-        content: const Text(
-            "Please grant location permission to view your location."),
+        content:
+            const Text("Please grant location permission to view your location."),
         actions: [
           TextButton(
             onPressed: () {
@@ -140,229 +141,232 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  Future<void> _fetchRefillStations() async {
-    final url = Uri.parse('http://192.168.1.6:8000/api/v1/refill-stations');
-    try {
-      final response = await http.get(
-        url,
-        headers: {'Accept': 'application/json'},
-      );
-      if (response.statusCode != 200) {
-        throw Exception('Failed to load stations (${response.statusCode})');
-      }
-
-      final decoded = json.decode(response.body);
-      // handle both: plain List or { data: List }
-      final List<dynamic> list =
-          decoded is List ? decoded : (decoded['data'] as List<dynamic>);
-
-      setState(() {
-        _stations = list
-            .map((item) =>
-                RefillingStation.fromJson(item as Map<String, dynamic>))
-            .toList();
-      });
-      debugPrint('Stations loaded: ${_stations.map((s) => s.id).join(', ')}');
-    } catch (e) {
-      debugPrint('Error fetching stations: $e');
+Future<void> _fetchRefillStations() async {
+  final url = Uri.parse('http://192.168.1.6:8000/api/v1/refill-stations');
+  try {
+    final response = await http.get(
+      url,
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load stations (${response.statusCode})');
     }
+
+    final decoded = json.decode(response.body);
+    // handle both: plain List or { data: List }
+    final List<dynamic> list = decoded is List
+        ? decoded
+        : (decoded['data'] as List<dynamic>);
+
+    setState(() {
+      _stations = list
+          .map((item) => RefillingStation.fromJson(item as Map<String, dynamic>))
+          .toList();
+    });
+    debugPrint('Stations loaded: ${_stations.map((s) => s.id).join(', ')}');
+  } catch (e) {
+    debugPrint('Error fetching stations: $e');
   }
+}
+
 
 // Refilling station dialog style
-  Future<void> _showStationDialog(
-    RefillingStation station,
-  ) async {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(35)),
-        backgroundColor: const Color(0xFF0F1A2B),
-        child: SizedBox(
-          width: 363,
-          height: 206,
-          child: Stack(
-            children: [
-              // Station Name
-              Positioned(
-                left: 38,
-                top: 20,
-                child: SizedBox(
-                  width: 280,
-                  height: 25,
-                  child: Text(
-                    station.shopName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontFamily: 'PoppinsExtraBold',
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ),
-              // Address
-              Positioned(
-                left: 37,
-                top: 41,
+Future<void> _showStationDialog(RefillingStation station,) async {
+  showDialog(
+    context: context,
+    builder: (_) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(35)),
+      backgroundColor: const Color(0xFF0F1A2B),
+      child: SizedBox(
+        width: 363,
+        height: 206,
+        child: Stack(
+          children: [
+            // Station Name
+            Positioned(
+              left: 38,
+              top: 20,
+              child: SizedBox(
+                width: 280,
+                height: 25,
                 child: Text(
-                  station.address,
+                  station.shopName,
                   style: const TextStyle(
-                    color: Color(0xFFB2B2B2),
-                    fontSize: 15,
-                    fontFamily: 'Poppins',
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontFamily: 'PoppinsExtraBold',
                     fontWeight: FontWeight.w400,
                   ),
                 ),
               ),
-              // Address
-              Positioned(
-                left: 37,
-                top: 60,
-                child: Text(
-                  'OPEN',
-                  style: const TextStyle(
-                    color: Color.fromARGB(255, 9, 255, 0),
-                    fontSize: 12,
-                    fontFamily: 'Poppins',
-                    fontWeight: FontWeight.w900,
-                  ),
+            ),
+            // Address
+            Positioned(
+              left: 37,
+              top: 41,
+              child: Text(
+                station.address,
+                style: const TextStyle(
+                  color: Color(0xFFB2B2B2),
+                  fontSize: 15,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w400,
                 ),
               ),
+            ),
+                        // Address
+            Positioned(
+              left: 37,
+              top: 60,
+              child: Text(
+                'OPEN',
+                style: const TextStyle(
+                  color: Color.fromARGB(255, 9, 255, 0),
+                  fontSize: 12,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
 
-              // Shop Image
-              Positioned(
-                left: 38,
-                top: 83,
-                child: Container(
-                  width: 100,
-                  height: 94,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(86),
-                    ),
+            
+            // Shop Image
+            Positioned(
+              left: 38,
+              top: 83,
+              child: Container(
+                width: 100,
+                height: 94,
+                clipBehavior: Clip.antiAlias,
+                decoration: ShapeDecoration(
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(86),
                   ),
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: -17,
-                        top: 0,
-                        child: Container(
-                          width: 178.67,
-                          height: 134,
-                          decoration: BoxDecoration(
-                            image: DecorationImage(
-                              image: NetworkImage(station.shopPhoto),
-                              fit: BoxFit.cover,
-                            ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: -17,
+                      top: 0,
+                      child: Container(
+                        width: 178.67,
+                        height: 134,
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: NetworkImage(station.shopPhoto),
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
+            ),
 
-              // Show Route Button
-              Positioned(
-                left: 182,
-                top: 82,
-                child: GestureDetector(
-                  onTap: () {
-                    if (_userLocation != null) {
-                      _showRouteTo(LatLng(station.latitude, station.longitude));
-                      Navigator.pop(context);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('User location not available')),
-                      );
-                    }
-                  },
-                  child: Container(
-                    width: 139,
-                    height: 41,
-                    decoration: ShapeDecoration(
-                      color: const Color(0xFFD1CFC9),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50),
-                      ),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'Show route',
-                        style: TextStyle(
-                          color: Color(0xFF0F1A2B),
-                          fontSize: 16,
-                          fontFamily: 'PoppinsExtraBold',
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Inquire Button
-              Positioned(
-                left: 182,
-                top: 128,
-                child: GestureDetector(
-                  onTap: () {
+            // Show Route Button
+            Positioned(
+              left: 182,
+              top: 82,
+              child: GestureDetector(
+                onTap: () {
+                  if (_userLocation != null) {
+                    _showRouteTo(LatLng(station.latitude, station.longitude));
                     Navigator.pop(context);
-                    _fetchOwnerShopDetails(station.ownerId).then((details) {
-                      final missingGallons = !details.hasRegularGallon &&
-                          !details.hasDispenserGallon;
-                      final missingSlots = details.deliveryTimeSlots.isEmpty;
-                      final missingDays = details.collectionDays.isEmpty;
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('User location not available')),
+                    );
+                  }
+                },
+                child: Container(
+                  width: 139,
+                  height: 41,
+                  decoration: ShapeDecoration(
+                    color: const Color(0xFFD1CFC9),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Show route',
+                      style: TextStyle(
+                        color: Color(0xFF0F1A2B),
+                        fontSize: 16,
+                        fontFamily: 'PoppinsExtraBold',
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Inquire Button
+            Positioned(
+              left: 182,
+              top: 128,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  _fetchOwnerShopDetails(station.ownerId)
+                    .then((details) {
+                      final missingGallons = 
+                        !details.hasRegularGallon && !details.hasDispenserGallon;
+                      final missingSlots   = details.deliveryTimeSlots.isEmpty;
+                      final missingDays    = details.collectionDays.isEmpty;
 
                       if (missingGallons || missingSlots || missingDays) {
                         // ignore: use_build_context_synchronously
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                              content: Text('Not yet available. Coming soon.')),
+                            content: Text('Not yet available. Coming soon.')
+                          ),
                         );
                         return; // stop here
                       }
 
                       _showGallonBottomSheet(details, station);
-                    }).catchError((e) {
+                    })
+                    .catchError((e) {
                       // ignore: use_build_context_synchronously
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Not available. Coming soon.')),
                       );
                     });
-                  },
-                  child: Container(
-                    width: 139,
-                    height: 41,
-                    decoration: ShapeDecoration(
-                      color: const Color(0xFFBDC4D4),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50),
-                      ),
+                },
+                child: Container(
+                  width: 139,
+                  height: 41,
+                  decoration: ShapeDecoration(
+                    color: const Color(0xFFBDC4D4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(50),
                     ),
-                    child: const Center(
-                      child: Text(
-                        'Inquire',
-                        style: TextStyle(
-                          color: Color(0xFF0F1A2B),
-                          fontSize: 16,
-                          fontFamily: 'PoppinsExtraBold',
-                          fontWeight: FontWeight.w900,
-                        ),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Inquire',
+                      style: TextStyle(
+                        color: Color(0xFF0F1A2B),
+                        fontSize: 16,
+                        fontFamily: 'PoppinsExtraBold',
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   // void _onTapNav(int index, BuildContext context) {
   //   switch (index) {
@@ -438,108 +442,6 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-// <<<<<<< userprofile
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _userLocation != null
-          ? Stack(
-              children: [
-                // ——— Your existing map ———
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _userLocation!,
-                    initialZoom: 19.0,
-                    maxZoom: 25.0,
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    ),
-                    if (_routePoints.isNotEmpty)
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: _routePoints,
-                            color: const Color(0xFF034C53),
-                            strokeWidth: 9.0,
-                          ),
-                        ],
-                      ),
-                    MarkerLayer(
-                      markers: [
-                        // user marker
-                        Marker(
-                          point: _userLocation!,
-                          width: 20,
-                          height: 20,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.blue,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                          ),
-                        ),
-                        // station markers
-                        ..._stations.map((station) => Marker(
-                              point:
-                                  LatLng(station.latitude, station.longitude),
-                              width: 30,
-                              height: 30,
-                              child: GestureDetector(
-                                onTap: () => _showStationDialog(station),
-                                child: Image.asset(
-                                  'images/store_tag1.png', // Replace with the correct path to your image
-                                  width: 60,
-                                  height: 60,
-                                ),
-                              ),
-                            )),
-                      ],
-                    ),
-                  ],
-                ),
-
-                // ——— Floating Address Bar ———
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 10,
-                  left: 20,
-                  right: 20,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: Color(0xff0F1A2B).withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.place, color: Colors.white),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _userAddress ?? 'Retrieving address…',
-                            style: const TextStyle(color: Colors.white),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.check, color: Colors.white),
-                          onPressed: _saveLocation,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : const Center(child: CircularProgressIndicator()),
-    );
-  }
-// =======
 @override
 Widget build(BuildContext context) {
   return Scaffold(
@@ -593,8 +495,8 @@ Widget build(BuildContext context) {
                             // station markers
                             ..._stations.map((station) => Marker(
                                   point: LatLng(station.latitude, station.longitude),
-                                  width: 30,
-                                  height: 30,
+                                  width: 60,
+                                  height: 60,
                                   child: GestureDetector(
                                     onTap: () => _showStationDialog(station),
                                     child: Image.asset(
@@ -615,7 +517,7 @@ Widget build(BuildContext context) {
                       left: 20,
                       right: 20,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                         decoration: BoxDecoration(
                           color: const Color(0xff0F1A2B).withOpacity(0.9),
                           borderRadius: BorderRadius.circular(20),
@@ -631,10 +533,10 @@ Widget build(BuildContext context) {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.check, color: Colors.white),
-                              onPressed: _saveLocation,
-                            ),
+                            // IconButton(
+                            //   icon: const Icon(Icons.check, color: Colors.white),
+                            //   onPressed: _saveLocation,
+                            // ),
                           ],
                         ),
                       ),
@@ -656,105 +558,90 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
   int dispenserGallon = 0;
   bool borrowGallon   = false;
   bool swapGallon     = false;
-// >>>>>>> main
 
-  void _showGallonBottomSheet(
-    OwnerShopDetails station,
-    RefillingStation details,
-  ) {
-    int regularGallon = 0;
-    int dispenserGallon = 0;
-    bool borrowGallon = false;
-    bool swapGallon = false;
+  double getTotal() {
+    // base cost
+    double total = regularGallon * station.regularGallonPrice
+                 + dispenserGallon * station.dispenserGallonPrice;
 
-    double getTotal() {
-      // base cost
-      double total = regularGallon * station.regularGallonPrice +
-          dispenserGallon * station.dispenserGallonPrice;
-
-      // if borrowing, add ₱50 per gallon
-      if (borrowGallon) {
-        final totalGallons = regularGallon + dispenserGallon;
-        total += totalGallons * 50;
-      }
-
-      return total;
+    // if borrowing, add ₱50 per gallon
+    if (borrowGallon) {
+      final totalGallons = regularGallon + dispenserGallon;
+      total += totalGallons * 50;
     }
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (ctx, setState) {
-            return Container(
-              height: 515,
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Color(0xFF455567),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
-              ),
-              child: Column(
-                children: [
-                  // handle bar
-                  Container(
-                    width: 129,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD9D9D9),
-                      borderRadius: BorderRadius.circular(10),
+    return total;
+  }
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (ctx, setState) {
+          return Container(
+            height: 515,
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: Color(0xFF455567),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
+            ),
+            child: Column(
+              children: [
+                // handle bar
+                Container(
+                  width: 129, height: 4,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD9D9D9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+
+                // title
+                const Text(
+                  'Select gallon',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontFamily: 'PoppinsExtraBold',
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                // gallon selectors
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Regular
+                    _buildGallonOption(
+                      image: 'images/regular_gallon.png',
+                      count: regularGallon,
+                      price: station.regularGallonPrice,
+                      label: 'Regular Gallon',
+                      onInc: () => setState(() => regularGallon++),
+                      onDec: () {
+                        if (regularGallon > 0) setState(() => regularGallon--);
+                      },
                     ),
-                  ),
 
-                  // title
-                  const Text(
-                    'Select gallon',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontFamily: 'PoppinsExtraBold',
-                      fontWeight: FontWeight.w800,
+                    // Dispenser
+                    _buildGallonOption(
+                      image: 'images/dispenser_gallon.png',
+                      count: dispenserGallon,
+                      price: station.dispenserGallonPrice,
+                      label: 'Dispenser Gallon',
+                      onInc: () => setState(() => dispenserGallon++),
+                      onDec: () {
+                        if (dispenserGallon > 0) setState(() => dispenserGallon--);
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 30),
+                  ],
+                ),
 
-                  // gallon selectors
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Regular
-                      _buildGallonOption(
-                        image: 'images/regular_gallon.png',
-                        count: regularGallon,
-                        price: station.regularGallonPrice,
-                        label: 'Regular Gallon',
-                        onInc: () => setState(() => regularGallon++),
-                        onDec: () {
-                          if (regularGallon > 0) {
-                            setState(() => regularGallon--);
-                          }
-                        },
-                      ),
-
-                      // Dispenser
-                      _buildGallonOption(
-                        image: 'images/dispenser_gallon.png',
-                        count: dispenserGallon,
-                        price: station.dispenserGallonPrice,
-                        label: 'Dispenser Gallon',
-                        onInc: () => setState(() => dispenserGallon++),
-                        onDec: () {
-                          if (dispenserGallon > 0) {
-                            setState(() => dispenserGallon--);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 30),
+                const SizedBox(height: 30),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -767,8 +654,7 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
                               if (borrowGallon) swapGallon = false;
                             }),
                             // ↓ make the checkbox compact
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                           ),
                           const SizedBox(width: 5),
@@ -786,8 +672,7 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
                               swapGallon = v!;
                               if (swapGallon) borrowGallon = false;
                             }),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                           ),
                           const SizedBox(width: 8),
@@ -800,19 +685,21 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
                     ],
                   ),
 
-                  const SizedBox(height: 10),
-                  // total & next
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Total: ₱${getTotal().toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
+
+
+                const SizedBox(height: 10),
+                // total & next
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total: ₱${getTotal().toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
                       ),
+                    ),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0F1A2B),
@@ -822,45 +709,41 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
                         ),
                         onPressed: () async {
                           final totalGallons = regularGallon + dispenserGallon;
-                          if (totalGallons == 0 ||
-                              (!borrowGallon && !swapGallon)) {
+                          if (totalGallons == 0 || (!borrowGallon && !swapGallon)) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text(
-                                    'Please select a gallon and tick one checkbox'),
+                                content: Text('Please select a gallon and tick one checkbox'),
                               ),
                             );
                             return;
                           }
-
+                      
                           // 1️⃣ Load the saved customer_id
                           final prefs = await SharedPreferences.getInstance();
                           final customerId = prefs.getInt('customer_id');
                           if (customerId == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Please log in again.')),
+                              const SnackBar(content: Text('Please log in again.')),
                             );
                             return;
                           }
-
+                      
                           // 2️⃣ Navigate, passing the real customerId
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => OrderForm(
-                                shopName: details.shopName,
-                                ownerName: details.ownerName,
+                                shopName:         details.shopName,
+                                ownerName:        details.ownerName,
                                 ownerShopDetails: station,
-                                regularGallon: regularGallon,
-                                dispenserGallon: dispenserGallon,
-                                borrow: borrowGallon,
-                                swap: swapGallon,
-                                total: getTotal(),
-                                shopId: station.id,
-                                customerId: customerId, // ← now the real ID
-                                stationId:
-                                    station.id, // ← added the required argument
+                                regularGallon:    regularGallon,
+                                dispenserGallon:  dispenserGallon,
+                                borrow:           borrowGallon,
+                                swap:             swapGallon,
+                                total:            getTotal(),
+                                shopId:           station.id,  
+                                customerId:       customerId, // ← now the real ID
+                                stationId:        station.id, // ← added the required argument
                               ),
                             ),
                           );
@@ -875,16 +758,18 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+
+
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
   /// extracted to keep above cleaner
   Widget _buildGallonOption({
@@ -898,8 +783,7 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
     return Column(
       children: [
         Container(
-          width: 120,
-          height: 164,
+          width: 120, height: 164,
           decoration: BoxDecoration(
             color: const Color(0xFF1F2937),
             borderRadius: BorderRadius.circular(15),
@@ -909,8 +793,7 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
         ),
         const SizedBox(height: 6),
         Container(
-          width: 100,
-          height: 30,
+          width: 100, height: 30,
           decoration: BoxDecoration(
             color: const Color(0xFFD9D9D9),
             borderRadius: BorderRadius.circular(20),
@@ -918,14 +801,12 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              GestureDetector(
-                  onTap: onDec, child: const Icon(Icons.remove, size: 15)),
-              Text('$count',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              GestureDetector(
-                  onTap: onInc, child: const Icon(Icons.add, size: 15)),
+              GestureDetector(onTap: onDec, child: const Icon(Icons.remove, size: 15)),
+              Text('$count', style: const TextStyle(fontWeight: FontWeight.bold)),
+              GestureDetector(onTap: onInc, child: const Icon(Icons.add, size: 15)),
             ],
           ),
+
         ),
         const SizedBox(height: 6),
         Text('₱${price.toStringAsFixed(2)}',
@@ -934,6 +815,8 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
       ],
     );
   }
+
+
 
   Future<OwnerShopDetails> _fetchOwnerShopDetails(int ownerId) async {
     final url = Uri.parse(
@@ -948,4 +831,7 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
     }
     throw Exception('Failed to load shop details (${resp.statusCode})');
   }
+
+
+
 }

@@ -18,7 +18,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 // import 'package:shared_preferences/shared_preferences.dart';
 
 class MapPage extends StatefulWidget {
-  const MapPage({super.key});
+  final int? initialStationId;
+  const MapPage({super.key, this.initialStationId});
 
   @override
   State<MapPage> createState() => _MapPageState();
@@ -31,11 +32,34 @@ class _MapPageState extends State<MapPage> {
   List<RefillingStation> _stations = [];
   List<LatLng> _routePoints = [];
 
+  /// Track whether we've already auto‐shown the dialog for a given station ID.
+  int? _alreadyShownForStationId;
+
   @override
   void initState() {
     super.initState();
     _determinePosition();
   }
+
+  /// Whenever the widget is rebuilt with a new initialStationId, we want to
+  /// re‐run the “center + show dialog” logic—provided we’ve already loaded _stations.
+  @override
+void didUpdateWidget(covariant MapPage oldWidget) {
+  super.didUpdateWidget(oldWidget);
+
+  // If Home has reset initialStationId to null, clear our “already shown” marker:
+  if (widget.initialStationId == null) {
+    _alreadyShownForStationId = null;
+  }
+
+  // Now, if Home has given us a non-null ID we haven’t shown yet, run it:
+  if (widget.initialStationId != null &&
+      widget.initialStationId != oldWidget.initialStationId &&
+      _stations.isNotEmpty) {
+    _centerAndShowDialog(widget.initialStationId!);
+  }
+}
+
 
   Future<void> _determinePosition() async {
     // 1) Ensure GPS is enabled
@@ -142,7 +166,7 @@ class _MapPageState extends State<MapPage> {
   }
 
 Future<void> _fetchRefillStations() async {
-  final url = Uri.parse('http://192.168.1.6:8000/api/v1/refill-stations');
+  final url = Uri.parse('http://192.168.1.10:8000/api/v1/refill-stations');
   try {
     final response = await http.get(
       url,
@@ -164,10 +188,38 @@ Future<void> _fetchRefillStations() async {
           .toList();
     });
     debugPrint('Stations loaded: ${_stations.map((s) => s.id).join(', ')}');
+    // ——— NEW: after stations load, if initialStationId was provided, open its dialog:
+      
+      // If initState provided an initialStationId, and we haven’t shown it yet,
+      // center & show that dialog now:
+      if (widget.initialStationId != null) {
+        _centerAndShowDialog(widget.initialStationId!);
+      }
   } catch (e) {
     debugPrint('Error fetching stations: $e');
   }
 }
+
+/// Centers the map on [stationId] and shows its dialog exactly once.
+  void _centerAndShowDialog(int stationId) {
+    // Avoid showing twice if the same ID comes in again
+    if (_alreadyShownForStationId == stationId) return;
+    _alreadyShownForStationId = stationId;
+
+    // Find the station in the loaded list
+    final station = _stations.firstWhere(
+      (s) => s.id == stationId,
+      orElse: () => _stations.first,
+    );
+
+    final center = LatLng(station.latitude, station.longitude);
+    _mapController.move(center, 17.0);
+
+    // Wait one frame for the map to move, then pop up the dialog:
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showStationDialog(station);
+    });
+  }
 
 
 // Refilling station dialog style
@@ -549,6 +601,7 @@ Widget build(BuildContext context) {
         )
       : const Center(child: CircularProgressIndicator()),
   );
+  
 }
 
 
@@ -820,7 +873,7 @@ void _showGallonBottomSheet(OwnerShopDetails station, RefillingStation details,)
 
   Future<OwnerShopDetails> _fetchOwnerShopDetails(int ownerId) async {
     final url = Uri.parse(
-      'http://192.168.1.6:8000/api/v1/shop-details/owner/$ownerId',
+      'http://192.168.1.10:8000/api/v1/shop-details/owner/$ownerId',
     );
     final resp = await http.get(url, headers: {
       'Accept': 'application/json',

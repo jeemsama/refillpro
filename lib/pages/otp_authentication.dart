@@ -5,9 +5,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:refillproo/pages/details.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'home.dart';
+// import 'home.dart';
 
 class OtpAuthentication extends StatefulWidget {
   final String email;
@@ -18,7 +19,7 @@ class OtpAuthentication extends StatefulWidget {
 }
 
 class _OtpAuthenticationState extends State<OtpAuthentication> {
-  static const String _baseUrl = 'http://192.168.1.6:8000';
+  static const String _baseUrl = 'http://192.168.1.10:8000';
 
   late Timer _resendTimer;
   int _secondsRemaining = 15;
@@ -130,7 +131,7 @@ class _OtpAuthenticationState extends State<OtpAuthentication> {
           if (!mounted) return;
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const HomePage()),
+            MaterialPageRoute(builder: (_) => const RegisterNameContactPage()),
             (route) => false,
           );
         } else {

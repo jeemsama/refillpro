@@ -667,8 +667,8 @@ packages:
   services:
     dependency: "direct main"
     description:
-      path: "../services"
-      relative: true
+      path: "C:\\Users\\Nick\\services"
+      relative: false
     source: path
     version: "0.0.1"
   shared_preferences:

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:refillproo/models/order.dart';
 import 'package:refillproo/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:logger/logger.dart';
 
 class ActivityPage extends StatefulWidget {
   const ActivityPage({super.key});
@@ -52,46 +52,31 @@ class _ActivityPageState extends State<ActivityPage>
     return SafeArea(
       child: Scaffold(
         backgroundColor: const Color(0xFFF2F2F2),
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(77),
-          child: Container(
-            color: const Color(0xFFF2F2F2),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 15),
-                  child: Row(
-                    children: [
-                      const Text("Your orders",
-                          style: TextStyle(
-                            fontFamily: 'PoppinsExtraBold',
-                              fontWeight: FontWeight.bold, fontSize: 24)),
-                      const Spacer(),
-                      TabBar(
-                        controller: _tabController,
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                        indicatorPadding: const EdgeInsets.symmetric(horizontal: 8),
-                        dividerColor: Colors.transparent, // Remove the 
-                        isScrollable: true,
-                        indicatorColor: Colors.black,
-                        labelColor: Colors.black,
-                        unselectedLabelColor: Colors.grey,
-                        labelStyle: const TextStyle(fontSize: 10),
-                        unselectedLabelStyle: const TextStyle(fontSize: 9),
-                        tabs: const [
-                          Tab(text: "Pending"),
-                          Tab(text: "Accepted"),
-                          Tab(text: "Completed"),
-                          Tab(text: "Cancelled"),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFF2F2F2),
+          elevation: 0,
+          title: const Text("Your orders",
+              style: TextStyle(
+                fontFamily: 'PoppinsExtraBold',
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+                color: Colors.black,
+              )),
+          bottom: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            indicatorColor: Colors.black,
+            labelColor: Colors.black,
+            unselectedLabelColor: Colors.grey,
+            labelStyle:
+                const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            unselectedLabelStyle: const TextStyle(fontSize: 11),
+            tabs: const [
+              Tab(text: "Pending"),
+              Tab(text: "Accepted"),
+              Tab(text: "Completed"),
+              Tab(text: "Cancelled"),
+            ],
           ),
         ),
         body: FutureBuilder<List<Order>>(
@@ -150,7 +135,10 @@ class _ActivityPageState extends State<ActivityPage>
 
   Widget _buildOrderList(List<Order> orders, String emptyMessage) {
     if (orders.isEmpty) {
-      return Center(child: Text(emptyMessage));
+      return Center(
+        child: Padding(
+            padding: const EdgeInsets.only(top: 40), child: Text(emptyMessage)),
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -191,8 +179,7 @@ class _ActivityPageState extends State<ActivityPage>
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: const Color(0xFF455567),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
         child: Container(
           width: MediaQuery.of(ctx).size.width * 0.8,
           padding: const EdgeInsets.all(16),
@@ -202,7 +189,6 @@ class _ActivityPageState extends State<ActivityPage>
               children: [
                 const Text('Cancel order?',
                     style: TextStyle(
-
                         color: Colors.white,
                         fontFamily: 'PoppinsExtraBold',
                         fontSize: 24,
@@ -218,7 +204,9 @@ class _ActivityPageState extends State<ActivityPage>
                     value: selectedReason,
                     hint: const Text('Reason to cancel',
                         style: TextStyle(
-                            color: Colors.black54, fontSize: 12, fontWeight: FontWeight.w600)),
+                            color: Colors.black54,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
                     isExpanded: true,
                     underline: const SizedBox(),
                     items: reasons
@@ -238,8 +226,7 @@ class _ActivityPageState extends State<ActivityPage>
                     backgroundColor: const Color(0xFF1F2937),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
-                    minimumSize:
-                        Size(MediaQuery.of(ctx).size.width * 0.4, 44),
+                    minimumSize: Size(MediaQuery.of(ctx).size.width * 0.4, 44),
                   ),
                   onPressed: selectedReason == null
                       ? null
@@ -269,7 +256,6 @@ class ActivityCard extends StatelessWidget {
   final VoidCallback? onAction;
 
   const ActivityCard({
-
     super.key,
     required this.order,
     this.actionLabel,
@@ -279,6 +265,8 @@ class ActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final logger = Logger();
+    logger.d('Borrow: ${order.borrow}, Swap: ${order.swap}');
     final w = MediaQuery.of(context).size.width;
     final h = MediaQuery.of(context).size.height;
 
@@ -303,7 +291,8 @@ class ActivityCard extends StatelessWidget {
                 Row(
                   children: [
                     Text(order.status.capitalize(),
-                        style: const TextStyle(color: Colors.white, fontSize: 14)),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 14)),
                     const SizedBox(width: 4),
                     const Icon(Icons.access_time,
                         color: Colors.white, size: 16),
@@ -312,17 +301,20 @@ class ActivityCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Text("ordered by ${order.orderedBy}",
+            Text("Ordered by ${order.orderedBy}",
                 style: const TextStyle(color: Colors.white70, fontSize: 14)),
             Text(order.phone,
                 style: const TextStyle(color: Colors.white70, fontSize: 14)),
-            if (order.borrow || order.swap)
-              Text(order.borrow ? "Borrow gallon" : "Swap gallon",
-                  style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            if (order.borrow)
+              Text("Borrow gallon",
+                  style: TextStyle(color: Colors.white70, fontSize: 14)),
+            if (order.swap)
+              Text("Swap gallon",
+                  style: TextStyle(color: Colors.white70, fontSize: 14)),
             Text(order.timeSlot,
                 style: const TextStyle(color: Colors.white70, fontSize: 14)),
             Align(
-              alignment: Alignment.topRight,
+              alignment: Alignment.topLeft,
               child: Text(order.formattedDate,
                   style: const TextStyle(color: Colors.white70, fontSize: 12)),
             ),
@@ -362,8 +354,8 @@ class ActivityCard extends StatelessWidget {
                           padding: EdgeInsets.zero,
                         ),
                         child: Text(actionLabel!,
-                            style:
-                                const TextStyle(color: Colors.white, fontSize: 12)),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12)),
                       ),
                     const SizedBox(height: 8),
                     Text("₱${order.total.toStringAsFixed(2)}",
@@ -391,8 +383,10 @@ class ActivityCard extends StatelessWidget {
         Image.asset(imagePath, width: 45, height: 45),
         const SizedBox(width: 4),
         Text("x$count",
-            style:
-                const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500)),
       ]),
     );
   }

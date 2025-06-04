@@ -222,7 +222,7 @@ class _ProfileContentState extends State<ProfileContent> {
     address = prefs.getString('saved_address') ?? 'Unknown location';
     if (token == null) return;
 
-    final url = Uri.parse('http://192.168.1.10:8000/api/customer/profile');
+    final url = Uri.parse('http://192.168.1.22:8000/api/customer/profile');
     final response = await http.get(url, headers: {
       'Authorization': 'Bearer $token',
       'Accept': 'application/json',
@@ -235,6 +235,9 @@ class _ProfileContentState extends State<ProfileContent> {
         shopName = profile.name ?? '';
         contactNumber = profile.phone ?? '';
       });
+
+      await prefs.setString('customer_name', profile.name ?? '');
+      await prefs.setString('customer_phone', profile.phone ?? '');
     }
   }
 
@@ -242,7 +245,7 @@ class _ProfileContentState extends State<ProfileContent> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('customer_token');
 
-    final uri = Uri.parse('http://192.168.1.10:8000/api/customer/profile');
+    final uri = Uri.parse('http://192.168.1.22:8000/api/customer/profile');
     final response = await http.put(
       uri,
       headers: {

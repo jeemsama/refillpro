@@ -79,7 +79,7 @@ class _HomePageState extends State<HomePage> {
     if (token == null) return;
 
     final response = await http.get(
-      Uri.parse('http://192.168.1.10:8000/api/customer/profile'),
+      Uri.parse('http://192.168.1.22:8000/api/customer/profile'),
       headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
@@ -165,7 +165,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.10:8000/api/customer/stores'),
+        Uri.parse('http://192.168.1.22:8000/api/customer/stores'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -188,8 +188,8 @@ class _HomePageState extends State<HomePage> {
           );
           store.distanceInMeters = distMeters;
         }
-        fetchedStores.sort((a, b) =>
-            a.distanceInMeters.compareTo(b.distanceInMeters)); // nearest→farthest
+        fetchedStores.sort((a, b) => a.distanceInMeters
+            .compareTo(b.distanceInMeters)); // nearest→farthest
 
         setState(() {
           _stores = fetchedStores;
@@ -197,8 +197,7 @@ class _HomePageState extends State<HomePage> {
         });
       } else {
         setState(() {
-          _storesError =
-              'Failed to load stores (code ${response.statusCode}).';
+          _storesError = 'Failed to load stores (code ${response.statusCode}).';
           _isLoadingStores = false;
         });
       }
@@ -309,86 +308,86 @@ class _HomePageState extends State<HomePage> {
 
   /// **NEW**: Renders the list of stores sorted by distance.
   Widget _buildStoreList() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Always show this title:
-        const Text(
-          'Nearby Stores',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'PoppinsExtraBold',
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Always show this title:
+          const Text(
+            'Nearby Stores',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'PoppinsExtraBold',
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
 
-        // Now show one of: loader, error, “no stores”, or the list itself:
-        if (_isLoadingStores)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else if (_storesError != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              _storesError!,
-              style: const TextStyle(color: Colors.red),
-            ),
-          )
-        else if (_stores.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('No stores found.'),
-          )
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _stores.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final store = _stores[index];
-              final distKm = (store.distanceInMeters / 1000).toStringAsFixed(2);
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                title: Text(
-                  store.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
+          // Now show one of: loader, error, “no stores”, or the list itself:
+          if (_isLoadingStores)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_storesError != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                _storesError!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            )
+          else if (_stores.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('No stores found.'),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _stores.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final store = _stores[index];
+                final distKm =
+                    (store.distanceInMeters / 1000).toStringAsFixed(2);
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                  title: Text(
+                    store.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Poppins',
+                    ),
                   ),
-                ),
-                subtitle: Text(
-                  '${store.address}\n$distKm km away',
-                  style: const TextStyle(fontFamily: 'Poppins', fontSize: 13),
-                ),
-                isThreeLine: true,
-                leading: const Icon(Icons.store, color: Colors.teal),
-                onTap: () {
-                  setState(() {
-                    _tappedStationId = null;
-                  });
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                  subtitle: Text(
+                    '${store.address}\n$distKm km away',
+                    style: const TextStyle(fontFamily: 'Poppins', fontSize: 13),
+                  ),
+                  isThreeLine: true,
+                  leading: const Icon(Icons.store, color: Colors.teal),
+                  onTap: () {
                     setState(() {
-                      _tappedStationId = store.id;
-                      _selectedIndex = 1;
+                      _tappedStationId = null;
                     });
-                  });
-                },
-              );
-            },
-          ),
-      ],
-    ),
-  );
-}
-
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      setState(() {
+                        _tappedStationId = store.id;
+                        _selectedIndex = 1;
+                      });
+                    });
+                  },
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
 
   // Widget _buildFeatureCard({
   //   required String title,
@@ -550,31 +549,30 @@ class _HomePageState extends State<HomePage> {
 
   /// **NEW**: Called when user pulls down to refresh on Home.
   /// Called when user pulls down to refresh on Home.
-Future<void> _refreshHome() async {
-  setState(() {
-    // show the loading spinner and clear out any previous errors
-    _isLoadingStores = true;
-    _storesError = null;
+  Future<void> _refreshHome() async {
+    setState(() {
+      // show the loading spinner and clear out any previous errors
+      _isLoadingStores = true;
+      _storesError = null;
 
-    // clear the store list so the old items go away immediately (optional)
-    _stores = [];
+      // clear the store list so the old items go away immediately (optional)
+      _stores = [];
 
-    // reset the tappedStationId so the next onTap will fire even if it's the same id
-    _tappedStationId = null;
-  });
+      // reset the tappedStationId so the next onTap will fire even if it's the same id
+      _tappedStationId = null;
+    });
 
-  // re‐fetch both name and stores
-  await _fetchCustomerName();
-  await _determinePositionAndFetchStores();
-}
-
+    // re‐fetch both name and stores
+    await _fetchCustomerName();
+    await _determinePositionAndFetchStores();
+  }
 
   Widget _buildHomeContent() {
     // Wrap the entire scrollable column in a RefreshIndicator:
     return RefreshIndicator(
       onRefresh: _refreshHome,
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(), 
+        physics: const AlwaysScrollableScrollPhysics(),
         // AlwaysScrollableScrollPhysics makes sure pull works even if content < viewport.
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
-
 class RegisterNameContactPage extends StatefulWidget {
   const RegisterNameContactPage({super.key});
 
@@ -46,7 +45,8 @@ class _RegisterNameContactPageState extends State<RegisterNameContactPage> {
     if (phone.isEmpty || !_phoneRegex.hasMatch(phone)) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid 10–11 digit phone number.')),
+        const SnackBar(
+            content: Text('Enter a valid 10–11 digit phone number.')),
       );
       return;
     }
@@ -58,19 +58,21 @@ class _RegisterNameContactPageState extends State<RegisterNameContactPage> {
       final token = prefs.getString('customer_token');
       if (token == null) throw Exception('No auth token found.');
 
-      final uri = Uri.parse('http://192.168.1.10:8000/api/customer/profile');
-      final response = await http.put(
-        uri,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'name': name,
-          'phone': phone,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final uri = Uri.parse('http://192.168.1.22:8000/api/customer/profile');
+      final response = await http
+          .put(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'name': name,
+              'phone': phone,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
       if (response.statusCode == 200) {

@@ -667,7 +667,7 @@ packages:
   services:
     dependency: "direct main"
     description:
-      path: "C:\\Users\\Nick\\services"
+      path: "C:\\Users\\CJ\\Desktop\\revision\\services"
       relative: false
     source: path
     version: "0.0.1"

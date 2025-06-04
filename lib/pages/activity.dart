@@ -145,6 +145,31 @@ class _ActivityPageState extends State<ActivityPage>
       itemCount: orders.length,
       itemBuilder: (context, i) {
         final order = orders[i];
+                      //         // ─── “Auto‐cancel in 2 hrs” Banner ────────────
+                      // Container(
+                      //   width: double.infinity,
+                      //   color: const Color(0xFFFFDCDC), // light pink
+                      //   padding: const EdgeInsets.symmetric(
+                      //       vertical: 8, horizontal: 12),
+                      //   child: Row(
+                      //     children: [
+                      //       const Icon(Icons.info_outline,
+                      //           color: Colors.black54),
+                      //       const SizedBox(width: 8),
+                      //       Expanded(
+                      //         child: Text(
+                      //           'Customer order will auto cancel if you don’t make any actions within 2 hours.',
+                      //           style: TextStyle(
+                      //             color: Colors.black87,
+                      //             fontFamily: 'Poppins',
+                      //             fontWeight: FontWeight.w600,
+                      //             fontSize: 14,
+                      //           ),
+                      //         ),
+                      //       ),
+                      //     ],
+                      //   ),
+                      // );
         if (order.status.toLowerCase() == 'pending') {
           return ActivityCard(
             order: order,
@@ -152,7 +177,8 @@ class _ActivityPageState extends State<ActivityPage>
             actionColor: const Color(0xFFA62C2C),
             onAction: () => _showCancelDialog(order),
           );
-        } else if (order.status.toLowerCase() == 'cancelled') {
+        }
+        else if (order.status.toLowerCase() == 'cancelled') {
           return ActivityCard(
             order: order,
             actionLabel: 'Delete order',

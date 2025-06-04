@@ -885,6 +885,7 @@ class _MapPageState extends State<MapPage> {
   Future<OwnerShopDetails> _fetchOwnerShopDetails(int ownerId) async {
     final url = Uri.parse(
       'http://192.168.1.22:8000/api/v1/shop-details/owner/$ownerId',
+      // 'http://192.168.1.22:8000/api/v1/shop-details/owner/$ownerId',
     );
     final resp = await http.get(url, headers: {
       'Accept': 'application/json',

@@ -667,7 +667,7 @@ packages:
   services:
     dependency: "direct main"
     description:
-      path: "C:\\Users\\CJ\\Desktop\\revision\\services"
+      path: "C:\\Users\\Dell Inspiron\\Desktop\\THESIS\\services"
       relative: false
     source: path
     version: "0.0.1"

@@ -611,7 +611,7 @@ class _OrderFormState extends State<OrderForm> {
                               color: textColor,
                               fontSize: w * 0.035,
                               fontWeight: FontWeight.w500)),
-                      Text('(Not exactly delivered in your wanted timeslot)',
+                      Text('(Not guaranteed to deliver on time but we will try)',
                           style: TextStyle(
                               color: textColor,
                               fontSize: w * 0.025,

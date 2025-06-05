@@ -44,6 +44,51 @@ class _ActivityPageState extends State<ActivityPage>
     await _loadMyOrders();
   }
 
+  /// Deletes all orders whose status is 'declined' or 'cancelled'
+  Future<void> _deleteAllCancelled(List<Order> orders) async {
+    // Filter down to only those we want to delete
+    final toRemove = orders.where((o) {
+      final s = o.status.toLowerCase();
+      return s == 'cancelled' || s == 'declined';
+    }).toList();
+
+    if (toRemove.isEmpty) {
+      return; // nothing to delete
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete All'),
+        content: const Text(
+          'This will permanently remove every cancelled/declined order. Are you sure?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      for (final o in toRemove) {
+        try {
+          await ApiService.deleteOrder(int.parse(o.id));
+        } catch (_) {
+          // ignore individual failures
+        }
+      }
+      // After deleting them all, refresh
+      await _loadMyOrders();
+    }
+  }
+
   List<Order> _filterByStatus(List<Order> orders, String status) =>
       orders.where((o) => o.status.toLowerCase() == status).toList();
 
@@ -55,13 +100,15 @@ class _ActivityPageState extends State<ActivityPage>
         appBar: AppBar(
           backgroundColor: const Color(0xFFF2F2F2),
           elevation: 0,
-          title: const Text("Your orders",
-              style: TextStyle(
-                fontFamily: 'PoppinsExtraBold',
-                fontWeight: FontWeight.bold,
-                fontSize: 24,
-                color: Colors.black,
-              )),
+          title: const Text(
+            "Your orders",
+            style: TextStyle(
+              fontFamily: 'PoppinsExtraBold',
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+              color: Colors.black,
+            ),
+          ),
           bottom: TabBar(
             controller: _tabController,
             isScrollable: true,
@@ -95,14 +142,16 @@ class _ActivityPageState extends State<ActivityPage>
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      // Wrap each list in RefreshIndicator:
+                      // ─ Pending ───────────────────────────────────────
                       RefreshIndicator(
                         onRefresh: _loadMyOrders,
                         child: _buildOrderList(
-                            _filterByStatus(orders, 'pending'),
-                            'No pending orders.'),
+                          _filterByStatus(orders, 'pending'),
+                          'No pending orders.',
+                        ),
                       ),
-                      // Accepted
+
+                      // ─ Accepted ──────────────────────────────────────
                       RefreshIndicator(
                         onRefresh: _loadMyOrders,
                         child: _buildOrderList(
@@ -110,17 +159,110 @@ class _ActivityPageState extends State<ActivityPage>
                           'No accepted orders.',
                         ),
                       ),
+
+                      // ─ Completed ─────────────────────────────────────
                       RefreshIndicator(
                         onRefresh: _loadMyOrders,
                         child: _buildOrderList(
-                            _filterByStatus(orders, 'completed'),
-                            'No completed orders.'),
+                          _filterByStatus(orders, 'completed'),
+                          'No completed orders.',
+                        ),
                       ),
+
+                      // ─ Cancelled ─────────────────────────────────────
+                      // Here we manually compose a Column so we can place
+                      // a "Delete All" button above the list.
                       RefreshIndicator(
                         onRefresh: _loadMyOrders,
-                        child: _buildOrderList(
-                            _filterByStatus(orders, 'declined'),
-                            'No cancelled orders.'),
+                        child: Column(
+                          children: [
+                            // 1) "Delete All" button
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _deleteAllCancelled(orders),
+                                  icon: const Icon(
+                                    Icons.delete_forever,
+                                    size: 20,
+                                    color: Color(0xffA62C2C),
+                                  ),
+                                  label: const Text(
+                                    'Delete All',
+                                    style: TextStyle(
+                                        color: Color(0xffA62C2C)),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFFFFFF),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 8, horizontal: 12),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // 2) The actual list of cancelled/declined orders:
+                            Expanded(
+                              child: orders
+                                      .where((o) =>
+                                          o.status.toLowerCase() == 'cancelled' ||
+                                          o.status.toLowerCase() == 'declined')
+                                      .isEmpty
+                                  ? Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 40),
+                                        child: Text('No cancelled orders.'),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 8),
+                                      itemCount: orders
+                                          .where((o) =>
+                                              o.status.toLowerCase() ==
+                                                  'cancelled' ||
+                                              o.status.toLowerCase() ==
+                                                  'declined')
+                                          .length,
+                                      itemBuilder: (context, i) {
+                                        final filtered = orders
+                                            .where((o) =>
+                                                o.status.toLowerCase() ==
+                                                    'cancelled' ||
+                                                o.status.toLowerCase() ==
+                                                    'declined')
+                                            .toList();
+                                        final order = filtered[i];
+                                        return ActivityCard(
+                                          order: order,
+                                          // Only show a “Delete” button (single)
+                                          // for customer‐cancelled items:
+                                          actionLabel:
+                                              order.status.toLowerCase() ==
+                                                      'cancelled'
+                                                  ? 'Delete order'
+                                                  : null,
+                                          actionColor:
+                                              order.status.toLowerCase() ==
+                                                      'cancelled'
+                                                  ? Colors.grey
+                                                  : null,
+                                          onAction:
+                                              order.status.toLowerCase() ==
+                                                      'cancelled'
+                                                  ? () => _deleteOrder(order)
+                                                  : null,
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -145,31 +287,6 @@ class _ActivityPageState extends State<ActivityPage>
       itemCount: orders.length,
       itemBuilder: (context, i) {
         final order = orders[i];
-                      //         // ─── “Auto‐cancel in 2 hrs” Banner ────────────
-                      // Container(
-                      //   width: double.infinity,
-                      //   color: const Color(0xFFFFDCDC), // light pink
-                      //   padding: const EdgeInsets.symmetric(
-                      //       vertical: 8, horizontal: 12),
-                      //   child: Row(
-                      //     children: [
-                      //       const Icon(Icons.info_outline,
-                      //           color: Colors.black54),
-                      //       const SizedBox(width: 8),
-                      //       Expanded(
-                      //         child: Text(
-                      //           'Customer order will auto cancel if you don’t make any actions within 2 hours.',
-                      //           style: TextStyle(
-                      //             color: Colors.black87,
-                      //             fontFamily: 'Poppins',
-                      //             fontWeight: FontWeight.w600,
-                      //             fontSize: 14,
-                      //           ),
-                      //         ),
-                      //       ),
-                      //     ],
-                      //   ),
-                      // );
         if (order.status.toLowerCase() == 'pending') {
           return ActivityCard(
             order: order,
@@ -177,8 +294,7 @@ class _ActivityPageState extends State<ActivityPage>
             actionColor: const Color(0xFFA62C2C),
             onAction: () => _showCancelDialog(order),
           );
-        }
-        else if (order.status.toLowerCase() == 'cancelled') {
+        } else if (order.status.toLowerCase() == 'cancelled') {
           return ActivityCard(
             order: order,
             actionLabel: 'Delete order',
@@ -186,7 +302,7 @@ class _ActivityPageState extends State<ActivityPage>
             onAction: () => _deleteOrder(order),
           );
         } else {
-          // Completed – no action button:
+          // Completed or Accepted – no action button:
           return ActivityCard(order: order);
         }
       },
@@ -213,12 +329,15 @@ class _ActivityPageState extends State<ActivityPage>
             builder: (context, setState) => Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Cancel order?',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'PoppinsExtraBold',
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800)),
+                const Text(
+                  'Cancel order?',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'PoppinsExtraBold',
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -228,19 +347,26 @@ class _ActivityPageState extends State<ActivityPage>
                   ),
                   child: DropdownButton<String>(
                     value: selectedReason,
-                    hint: const Text('Reason to cancel',
-                        style: TextStyle(
-                            color: Colors.black54,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600)),
+                    hint: const Text(
+                      'Reason to cancel',
+                      style: TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     isExpanded: true,
                     underline: const SizedBox(),
                     items: reasons
                         .map((r) => DropdownMenuItem(
                               value: r,
-                              child: Text(r,
-                                  style: const TextStyle(
-                                      color: Colors.black, fontSize: 14)),
+                              child: Text(
+                                r,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ))
                         .toList(),
                     onChanged: (v) => setState(() => selectedReason = v),
@@ -252,7 +378,8 @@ class _ActivityPageState extends State<ActivityPage>
                     backgroundColor: const Color(0xFF1F2937),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
-                    minimumSize: Size(MediaQuery.of(ctx).size.width * 0.4, 44),
+                    minimumSize:
+                        Size(MediaQuery.of(ctx).size.width * 0.4, 44),
                   ),
                   onPressed: selectedReason == null
                       ? null
@@ -260,11 +387,14 @@ class _ActivityPageState extends State<ActivityPage>
                           Navigator.of(ctx).pop();
                           _cancelOrder(order, selectedReason!);
                         },
-                  child: const Text('Submit',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500)),
+                  child: const Text(
+                    'Submit',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -275,6 +405,9 @@ class _ActivityPageState extends State<ActivityPage>
   }
 }
 
+/// ─────────────────────────────────────────────────────────────────────────
+/// ActivityCard: shows one order (with optional “delete” or “cancel” button)
+/// ─────────────────────────────────────────────────────────────────────────
 class ActivityCard extends StatelessWidget {
   final Order order;
   final String? actionLabel;
@@ -305,90 +438,158 @@ class ActivityCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top row
+            // Top row: shop name + status icon
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(order.shopName,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold)),
+                Text(
+                  order.shopName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 Row(
                   children: [
-                    Text(order.status.capitalize(),
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 14)),
+                    Text(
+                      order.status.capitalize(),
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.access_time,
-                        color: Colors.white, size: 16),
+                    const Icon(
+                      Icons.access_time,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ],
                 ),
               ],
             ),
+
             const SizedBox(height: 4),
-            Text("Ordered by ${order.orderedBy}",
-                style: const TextStyle(color: Colors.white70, fontSize: 14)),
-            Text(order.phone,
-                style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            Text(
+              "Ordered by ${order.orderedBy}",
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            Text(
+              order.phone,
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
             if (order.borrow)
-              Text("Borrow gallon",
-                  style: TextStyle(color: Colors.white70, fontSize: 14)),
+              Text(
+                "Borrow gallon",
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
             if (order.swap)
-              Text("Swap gallon",
-                  style: TextStyle(color: Colors.white70, fontSize: 14)),
-            Text(order.timeSlot,
-                style: const TextStyle(color: Colors.white70, fontSize: 14)),
+              Text(
+                "Swap gallon",
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            Text(
+              order.timeSlot,
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
             Align(
               alignment: Alignment.topLeft,
-              child: Text(order.formattedDate,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              child: Text(
+                order.formattedDate,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
             ),
+
             if ((order.message ?? '').isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(order.message!,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis),
+              Text(
+                order.message!,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
+
+            // If owner declined: show decline reason (italic)
+            if (order.status.toLowerCase() == 'declined' &&
+                (order.cancelReasonOwner ?? '').isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                "Declined reason: ${order.cancelReasonOwner}",
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+
+            // If customer cancelled: show cancel reason (italic)
+            if (order.status.toLowerCase() == 'cancelled' &&
+                (order.cancelReasonCustomer ?? '').isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                "Cancel reason: ${order.cancelReasonCustomer}",
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+
             const SizedBox(height: 12),
-            // Products + action button + total
+
+            // Bottom row: product icons + optional action button + total
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(children: [
-                  if (order.regularCount > 0)
-                    _buildProductItem(
+                // Product icons (regular / dispenser)
+                Row(
+                  children: [
+                    if (order.regularCount > 0)
+                      _buildProductItem(
                         count: order.regularCount,
-                        imagePath: 'images/regular_gallon.png'),
-                  if (order.dispenserCount > 0)
-                    _buildProductItem(
+                        imagePath: 'images/regular_gallon.png',
+                      ),
+                    if (order.dispenserCount > 0)
+                      _buildProductItem(
                         count: order.dispenserCount,
-                        imagePath: 'images/dispenser_gallon.png'),
-                ]),
+                        imagePath: 'images/dispenser_gallon.png',
+                      ),
+                  ],
+                ),
+
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    // If there's an action button for this card, show it:
                     if (actionLabel != null)
                       ElevatedButton(
                         onPressed: onAction,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: actionColor,
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(50)),
+                            borderRadius: BorderRadius.circular(50),
+                          ),
                           minimumSize: Size(w * 0.3, h * 0.04),
                           padding: EdgeInsets.zero,
                         ),
-                        child: Text(actionLabel!,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 12)),
+                        child: Text(
+                          actionLabel!,
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
                       ),
+
                     const SizedBox(height: 8),
-                    Text("₱${order.total.toStringAsFixed(2)}",
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
+
+                    // Order total:
+                    Text(
+                      "₱${order.total.toStringAsFixed(2)}",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -405,15 +606,17 @@ class ActivityCard extends StatelessWidget {
   }) {
     return Container(
       margin: const EdgeInsets.only(right: 12),
-      child: Row(children: [
-        Image.asset(imagePath, width: 45, height: 45),
-        const SizedBox(width: 4),
-        Text("x$count",
+      child: Row(
+        children: [
+          Image.asset(imagePath, width: 45, height: 45),
+          const SizedBox(width: 4),
+          Text(
+            "x$count",
             style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500)),
-      ]),
+                color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
     );
   }
 }

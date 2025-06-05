@@ -2,10 +2,10 @@
 
 class Order {
   final String id;
+  final String shopName;
   final int customerId;
   final int shopId;
   final String ownerName;
-  final String shopName;
   final String orderedBy;
   final String phone;
   final String timeSlot;
@@ -19,13 +19,15 @@ class Order {
   final String status;
   final double latitude;
   final double longitude;
+  final String? cancelReasonCustomer; // from JSON: cancel_reason_customer
+  final String? cancelReasonOwner;    // from JSON: cancel_reason_owner
 
   Order({
     this.id = '',
+    required this.shopName,
     required this.customerId,
     required this.shopId,
     required this.ownerName,
-    required this.shopName,
     required this.orderedBy,
     required this.phone,
     required this.timeSlot,
@@ -39,6 +41,8 @@ class Order {
     required this.longitude,
     DateTime? placedAt,
     this.status = 'pending',
+    this.cancelReasonCustomer,
+    this.cancelReasonOwner,
   }) : placedAt = placedAt ?? DateTime.now();
 
   String get formattedDate =>
@@ -93,6 +97,8 @@ class Order {
           ? DateTime.parse(j['created_at'] as String)
           : DateTime.now(),
       status: j['status'] as String? ?? 'pending',
+      cancelReasonCustomer: j['cancel_reason_customer'] as String?,
+      cancelReasonOwner:    j['cancel_reason_owner']    as String?,
     );
   }
 

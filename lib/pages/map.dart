@@ -178,7 +178,7 @@ class _MapPageState extends State<MapPage> {
   }
 
 // Future<void> _fetchRefillStations() async {
-//   final url = Uri.parse('http://192.168.1.22:8000/api/v1/refill-stations');
+//   final url = Uri.parse('http://192.168.1.36:8000/api/v1/refill-stations');
 //   try {
 //     final response = await http.get(
 //       url,
@@ -206,7 +206,7 @@ class _MapPageState extends State<MapPage> {
 //   }
 
   Future<void> _fetchRefillStations() async {
-    final url = Uri.parse('http://192.168.1.22:8000/api/v1/refill-stations');
+    final url = Uri.parse('http://192.168.1.36:8000/api/v1/refill-stations');
     try {
       final response = await http.get(
         url,
@@ -816,7 +816,7 @@ class _MapPageState extends State<MapPage> {
                               },
                               child: const Text(
                                 'Next',
-                                style: TextStyle(fontSize: 12),
+                                style: TextStyle(fontSize: 12, color: Colors.white),
                               ),
                             ),
                           ],
@@ -884,8 +884,8 @@ class _MapPageState extends State<MapPage> {
 
   Future<OwnerShopDetails> _fetchOwnerShopDetails(int ownerId) async {
     final url = Uri.parse(
-      'http://192.168.1.22:8000/api/v1/shop-details/owner/$ownerId',
-      // 'http://192.168.1.22:8000/api/v1/shop-details/owner/$ownerId',
+      'http://192.168.1.36:8000/api/v1/shop-details/owner/$ownerId',
+      // 'http://192.168.1.36:8000/api/v1/shop-details/owner/$ownerId',
     );
     final resp = await http.get(url, headers: {
       'Accept': 'application/json',

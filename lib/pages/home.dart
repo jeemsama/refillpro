@@ -1,5 +1,6 @@
 // lib/pages/home.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -11,15 +12,14 @@ import 'package:refillproo/navs/header.dart';
 import 'package:refillproo/pages/activity.dart';
 import 'package:refillproo/pages/map.dart';
 import 'package:refillproo/pages/profile.dart';
+import 'package:refillproo/models/order.dart';
+import 'package:refillproo/services/api_service.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+import 'package:refillproo/pages/order_form.dart';
+// import 'package:refillproo/services/api_service.dart';
 
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
 
-/// A simple data‐class to hold store information and computed distance.
+/// Simple data‐class to hold store information and computed distance.
 class Store {
   final int id;
   final String name;
@@ -44,42 +44,94 @@ class Store {
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       address: json['address'] as String? ?? '',
-      distanceInMeters: 0.0, // will compute later
+      distanceInMeters: 0.0,
     );
   }
 }
 
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  // int _selectedQuizOption = -1;
   String? _customerName;
-
   int? _tappedStationId;
 
-  // **NEW**: customer’s current position
-  // ignore: unused_field
-  Position? _currentPosition;
-
-  // **NEW**: list of stores (with computed distance)
   List<Store> _stores = [];
   bool _isLoadingStores = true;
   String? _storesError;
 
+  /// Controller for the autocomplete field
+  late TextEditingController _autocompleteController;
+
+  /// For cycling “Tip of the Day”
+  late Timer _tipTimer;
+  int _currentTipIndex = 0;
+  int _currentColorIndex = 0;
+
+  /// The list of tip strings to cycle through
+  final List<String> _tipTexts = [
+    'Drink at least 8 glasses of water each day to stay hydrated.',
+    'Cold water can help boost your metabolism slightly.',
+    'Carry a reusable bottle to track and increase your intake.',
+    'Infuse your water with fruits for added flavor and nutrients.',
+    'Drinking water before meals can help with digestion and appetite control.',
+  ];
+
+  /// A list of gradient‐pairs to cycle through for the container background
+  final List<List<Color>> _tipGradients = [
+    [Colors.teal.shade400, Colors.teal.shade200],
+    [Colors.purple.shade400, Colors.purple.shade200],
+    [Colors.orange.shade400, Colors.orange.shade200],
+    [Colors.blue.shade400, Colors.blue.shade200],
+    [Colors.green.shade400, Colors.green.shade200],
+  ];
+
+  /// Holds the most recent completed order, if any
+  Order? _lastCompletedOrder;
+  bool _isLoadingLastOrder = true;
+
   @override
   void initState() {
     super.initState();
+    _autocompleteController = TextEditingController();
+    _autocompleteController.addListener(() {
+      // Trigger rebuild when autocomplete text changes
+      setState(() {});
+    });
+
     _fetchCustomerName();
     _determinePositionAndFetchStores();
+    _fetchLastCompletedOrder();
+
+    // Start the timer that rotates tips + colors every 10 seconds
+    _tipTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      setState(() {
+        _currentTipIndex = (_currentTipIndex + 1) % _tipTexts.length;
+        _currentColorIndex = (_currentColorIndex + 1) % _tipGradients.length;
+      });
+    });
   }
 
-  /// Fetches the authenticated customer’s name, exactly as before.
+  @override
+  void dispose() {
+    _autocompleteController.dispose();
+    _tipTimer.cancel(); // Cancel our tip‐rotation timer
+    super.dispose();
+  }
+
+  /// Fetches the authenticated customer’s name.
   Future<void> _fetchCustomerName() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('customer_token');
     if (token == null) return;
 
     final response = await http.get(
-      Uri.parse('http://192.168.1.22:8000/api/customer/profile'),
+      Uri.parse('http://192.168.1.36:8000/api/customer/profile'),
       headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
@@ -87,7 +139,7 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
       setState(() {
         _customerName = data['name'] as String?;
       });
@@ -101,7 +153,6 @@ class _HomePageState extends State<HomePage> {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // 1. Check if location services are enabled
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       setState(() {
@@ -111,7 +162,6 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // 2. Check for permission
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -132,16 +182,10 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // 3. If permission granted, get current position:
     try {
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      setState(() {
-        _currentPosition = position;
-      });
-
-      // 4. With position in hand, fetch and process stores:
       await _fetchStoresFromApi(position.latitude, position.longitude);
     } catch (e) {
       setState(() {
@@ -165,7 +209,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.22:8000/api/customer/stores'),
+        Uri.parse('http://192.168.1.36:8000/api/customer/stores'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -173,12 +217,12 @@ class _HomePageState extends State<HomePage> {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(response.body);
+        final List<dynamic> jsonList = jsonDecode(response.body) as List<dynamic>;
         final List<Store> fetchedStores = jsonList
             .map((item) => Store.fromJson(item as Map<String, dynamic>))
             .toList();
 
-        // Compute distance for each store and sort
+        // Compute distance for each store
         for (var store in fetchedStores) {
           final distMeters = Geolocator.distanceBetween(
             userLat,
@@ -188,8 +232,9 @@ class _HomePageState extends State<HomePage> {
           );
           store.distanceInMeters = distMeters;
         }
-        fetchedStores.sort((a, b) => a.distanceInMeters
-            .compareTo(b.distanceInMeters)); // nearest→farthest
+
+        // Sort by distance (nearest → farthest)
+        fetchedStores.sort((a, b) => a.distanceInMeters.compareTo(b.distanceInMeters));
 
         setState(() {
           _stores = fetchedStores;
@@ -205,6 +250,41 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _storesError = 'Error fetching stores: $e';
         _isLoadingStores = false;
+      });
+    }
+  }
+
+  /// Fetches the last “completed” order for this customer (if any), by calling
+  /// the same API that `ActivityPage` uses, then filtering for `status == 'completed'`
+  /// and taking the most‐recent one (by assumed order in the returned list).
+  Future<void> _fetchLastCompletedOrder() async {
+    setState(() {
+      _isLoadingLastOrder = true;
+      _lastCompletedOrder = null;
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    final customerId = prefs.getInt('customer_id');
+    if (customerId == null) {
+      setState(() {
+        _isLoadingLastOrder = false;
+      });
+      return;
+    }
+
+    try {
+      final allOrders = await ApiService.fetchMyOrders(customerId.toString());
+      // Filter those whose status is 'completed'
+      final completed = allOrders.where((o) => o.status.toLowerCase() == 'completed');
+      if (completed.isNotEmpty) {
+        // If your API returns them sorted descending by time, just take first:
+        _lastCompletedOrder = completed.first;
+      }
+    } catch (_) {
+      // ignore errors here for now
+    } finally {
+      setState(() {
+        _isLoadingLastOrder = false;
       });
     }
   }
@@ -244,76 +324,377 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildTipCard() {
-    final tip = [
-      'Drink at least 8 glasses of water each day to stay hydrated.',
-      'Cold water can help boost your metabolism slightly.',
-      'Carry a reusable bottle to track and increase your intake.',
-      'Infuse your water with fruits for added flavor and nutrients.',
-      'Drinking water before meals can help with digestion and appetite control.',
-    ][DateTime.now().day % 5];
+Widget _buildTipCard() {
+  // Pick the current tip text and gradient by index:
+  final String tip = _tipTexts[_currentTipIndex];
+  final List<Color> gradientColors = _tipGradients[_currentColorIndex];
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.teal.shade400, Colors.teal.shade200],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(90),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: gradientColors,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(90),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.lightbulb, size: 28, color: Colors.white),
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withAlpha(90),
+          blurRadius: 6,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(90),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Tip of the Day',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
+          child: const Icon(
+            Icons.lightbulb,
+            size: 20,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Refill Pro Tip of the Day',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                tip,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.white,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+
+
+  
+Widget _buildLastCompletedOrderCard() {
+  if (_isLoadingLastOrder) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 16),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+  if (_lastCompletedOrder == null) return const SizedBox.shrink();
+  final o = _lastCompletedOrder!;
+
+  // screen width minus horizontal padding on both sides
+  final screenW = MediaQuery.of(context).size.width;
+  final cardW    = screenW - 32;
+
+  // We'll display the product images at a fixed height (50px)
+  const imageH = 50.0;
+  // preserve your assets' aspect ratios
+  final regularW   = imageH * (310.0 / 442.0);
+  final dispenserW = imageH * (287.0 / 497.0);
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // “Previous order” title
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Text(
+          'Previous order',
+          style: const TextStyle(
+            color: Color(0xFF1F2937),
+            fontSize: 18,
+            fontFamily: 'PoppinsExtraBold',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+
+      // The dark card
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          width: cardW,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F1A2B),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(40),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ─ Left: Shop name + images + counts ─────────
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Shop name
+                    Text(
+                      o.shopName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Product images + counts
+                    Row(
+                      children: [
+                        if (o.regularCount > 0) ...[
+                          Image.asset(
+                            'images/regular_gallon.png',
+                            width: regularW,
+                            height: imageH,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'x${o.regularCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontFamily: 'Poppins',
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                        ],
+                        if (o.dispenserCount > 0) ...[
+                          Image.asset(
+                            'images/dispenser_gallon.png',
+                            width: dispenserW,
+                            height: imageH,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'x${o.dispenserCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontFamily: 'Poppins',
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // ─ Right: Reorder button + total ─────────────
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  ElevatedButton(
+                    onPressed: () async {
+                      // fetch shop details then navigate:
+                      final details = await ApiService
+                        .fetchOwnerShopDetails(o.shopId.toString());
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => OrderForm(
+                            shopName:             o.shopName,
+                            customerId:           o.customerId,
+                            stationId:            o.shopId,
+                            ownerName:            o.ownerName,
+                            ownerShopDetails:     details,
+                            regularGallon:        o.regularCount,
+                            dispenserGallon:      o.dispenserCount,
+                            borrow:               o.borrow,
+                            swap:                 o.swap,
+                            total:                o.total,
+                            shopId:               o.shopId,
+                            regularGallonImage:   'images/regular_gallon.png',
+                            dispenserGallonImage: 'images/dispenser_gallon.png',
+                            borrowPrice:          details.borrowPrice,
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF5CB338),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8
+                      ),
+                      elevation: 2,
+                    ),
+                    child: const Text(
+                      'Order again?',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // total price
+                  Text(
+                    '₱${o.total.toStringAsFixed(1)}',
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontSize: 18,
-                      color: Colors.white),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  tip,
-                  style: const TextStyle(fontSize: 15, color: Colors.white),
-                ),
-              ],
-            ),
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
+      ),
+
+      const SizedBox(height: 16),
+    ],
+  );
+}
+
+
+
+
+
+
+
+
+  /// Renders a dropdown of nearby store–names. As soon as the user selects
+  /// one, we record that station’s ID and jump to the Map tab.
+  Widget _buildStoreAutocomplete() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Autocomplete<Store>(
+        displayStringForOption: (Store s) => s.name,
+        fieldViewBuilder:
+            (context, textEditingController, focusNode, onFieldSubmitted) {
+          // Tie our controller into the Autocomplete
+          textEditingController.text = _autocompleteController.text;
+          return TextField(
+            controller: _autocompleteController,
+            focusNode: focusNode,
+            decoration: InputDecoration(
+              hintText: 'Search station shops...',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade400),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            onSubmitted: (_) => onFieldSubmitted(),
+          );
+        },
+        optionsBuilder: (TextEditingValue textEditingValue) {
+          final input = textEditingValue.text.trim().toLowerCase();
+          if (input.isEmpty) return const Iterable<Store>.empty();
+
+          return _stores.where((Store store) {
+            final lowerName = store.name.toLowerCase();
+            final lowerAddress = store.address.toLowerCase();
+            return lowerName.contains(input) || lowerAddress.contains(input);
+          });
+        },
+        onSelected: (Store selectedStore) {
+          // When user taps a suggestion, switch to Map tab for that store:
+          setState(() {
+            _tappedStationId = selectedStore.id;
+            _selectedIndex = 1;
+          });
+        },
+        optionsViewBuilder: (context, onSelected, options) {
+          final totalWidth = MediaQuery.of(context).size.width - 32;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: totalWidth,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxHeight: 200, // scroll if more items
+                    ),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: options.length,
+                      itemBuilder: (BuildContext context, int index) {
+                        final Store s = options.elementAt(index);
+                        return ListTile(
+                          title: Text(s.name),
+                          subtitle: Text(
+                            s.address,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () {
+                            onSelected(s);
+                            _autocompleteController.text = s.name;
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  /// **NEW**: Renders the list of stores sorted by distance.
+
+  /// Renders the list of nearby stores (with distance) in a scrollable list.
   Widget _buildStoreList() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Always show this title:
           const Text(
             'Nearby Stores',
             style: TextStyle(
@@ -323,8 +704,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: 8),
-
-          // Now show one of: loader, error, “no stores”, or the list itself:
           if (_isLoadingStores)
             const Center(
               child: Padding(
@@ -353,8 +732,7 @@ class _HomePageState extends State<HomePage> {
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final store = _stores[index];
-                final distKm =
-                    (store.distanceInMeters / 1000).toStringAsFixed(2);
+                final distKm = (store.distanceInMeters / 1000).toStringAsFixed(2);
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(vertical: 4),
                   title: Text(
@@ -366,7 +744,10 @@ class _HomePageState extends State<HomePage> {
                   ),
                   subtitle: Text(
                     '${store.address}\n$distKm km away',
-                    style: const TextStyle(fontFamily: 'Poppins', fontSize: 13),
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 13,
+                    ),
                   ),
                   isThreeLine: true,
                   leading: const Icon(Icons.store, color: Colors.teal),
@@ -389,197 +770,41 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Widget _buildFeatureCard({
-  //   required String title,
-  //   required String subtitle,
-  //   required IconData icon,
-  //   required Color baseColor,
-  // }) {
-  //   return Container(
-  //     width: 220,
-  //     margin: const EdgeInsets.only(right: 12),
-  //     padding: const EdgeInsets.all(16),
-  //     decoration: BoxDecoration(
-  //       gradient: LinearGradient(
-  //         colors: [baseColor.withAlpha(150), baseColor.withAlpha(60)],
-  //         begin: Alignment.topLeft,
-  //         end: Alignment.bottomRight,
-  //       ),
-  //       borderRadius: BorderRadius.circular(14),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withAlpha(60),
-  //           blurRadius: 6,
-  //           offset: const Offset(0, 3),
-  //         ),
-  //       ],
-  //     ),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Container(
-  //           padding: const EdgeInsets.all(10),
-  //           decoration: BoxDecoration(
-  //             color: Colors.white.withAlpha(80),
-  //             shape: BoxShape.circle,
-  //           ),
-  //           child: Icon(icon, size: 28, color: baseColor),
-  //         ),
-  //         const SizedBox(height: 12),
-  //         Text(
-  //           title,
-  //           style: const TextStyle(
-  //               fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
-  //         ),
-  //         const SizedBox(height: 6),
-  //         Text(
-  //           subtitle,
-  //           style: const TextStyle(fontSize: 13, color: Colors.white70),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildFlashcardRow() {
-  //   return SizedBox(
-  //     height: 180,
-  //     child: ListView(
-  //       scrollDirection: Axis.horizontal,
-  //       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-  //       children: [
-  //         _buildFeatureCard(
-  //           title: 'Water Refill',
-  //           subtitle:
-  //               'Order purified or alkaline water for delivery or pickup.',
-  //           icon: Icons.water_drop,
-  //           baseColor: Colors.blue,
-  //         ),
-  //         _buildFeatureCard(
-  //           title: 'Container Pickup',
-  //           subtitle: 'We collect used containers based on your schedule.',
-  //           icon: Icons.recycling,
-  //           baseColor: Colors.green,
-  //         ),
-  //         _buildFeatureCard(
-  //           title: 'Sanitizing',
-  //           subtitle: 'Ensure your containers are safe and hygienic.',
-  //           icon: Icons.cleaning_services,
-  //           baseColor: Colors.purple,
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildQuizCard() {
-  //   const question = 'How many glasses have you drunk today?';
-  //   final options = ['0', '1', '2', '3', '4', '5+'];
-  //   return Container(
-  //     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-  //     padding: const EdgeInsets.all(20),
-  //     decoration: BoxDecoration(
-  //       gradient: LinearGradient(
-  //         colors: [Colors.orange.shade400, Colors.orange.shade200],
-  //         begin: Alignment.topLeft,
-  //         end: Alignment.bottomRight,
-  //       ),
-  //       borderRadius: BorderRadius.circular(16),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withAlpha(90),
-  //           blurRadius: 8,
-  //           offset: const Offset(0, 4),
-  //         ),
-  //       ],
-  //     ),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Row(
-  //           children: [
-  //             Container(
-  //               padding: const EdgeInsets.all(10),
-  //               decoration: BoxDecoration(
-  //                 color: Colors.white.withAlpha(80),
-  //                 shape: BoxShape.circle,
-  //               ),
-  //               child: const Icon(Icons.quiz, size: 28, color: Colors.orange),
-  //             ),
-  //             const SizedBox(width: 12),
-  //             const Text(
-  //               'Quick Poll',
-  //               style: TextStyle(
-  //                   fontWeight: FontWeight.bold,
-  //                   fontSize: 18,
-  //                   color: Colors.white),
-  //             ),
-  //           ],
-  //         ),
-  //         const SizedBox(height: 12),
-  //         Text(
-  //           question,
-  //           style: const TextStyle(fontSize: 15, color: Colors.white),
-  //         ),
-  //         const SizedBox(height: 12),
-  //         Wrap(
-  //           spacing: 8,
-  //           children: List.generate(options.length, (i) {
-  //             final selected = _selectedQuizOption == i;
-  //             return ChoiceChip(
-  //               label: Text(
-  //                 options[i],
-  //                 style: TextStyle(
-  //                     color: selected
-  //                         ? Colors.orange.shade900
-  //                         : const Color.fromARGB(255, 19, 19, 19)),
-  //               ),
-  //               selected: selected,
-  //               backgroundColor: Colors.white.withAlpha(60),
-  //               selectedColor: Colors.white.withAlpha(150),
-  //               onSelected: (_) =>
-  //                   setState(() => _selectedQuizOption = selected ? -1 : i),
-  //             );
-  //           }),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  /// **NEW**: Called when user pulls down to refresh on Home.
   /// Called when user pulls down to refresh on Home.
   Future<void> _refreshHome() async {
     setState(() {
-      // show the loading spinner and clear out any previous errors
       _isLoadingStores = true;
       _storesError = null;
-
-      // clear the store list so the old items go away immediately (optional)
       _stores = [];
-
-      // reset the tappedStationId so the next onTap will fire even if it's the same id
       _tappedStationId = null;
+      _autocompleteController.clear();
+      _lastCompletedOrder = null;
+      _isLoadingLastOrder = true;
     });
 
-    // re‐fetch both name and stores
-    await _fetchCustomerName();
-    await _determinePositionAndFetchStores();
+    await Future.wait([
+      _fetchCustomerName(),
+      _determinePositionAndFetchStores(),
+      _fetchLastCompletedOrder(),
+    ]);
   }
 
   Widget _buildHomeContent() {
-    // Wrap the entire scrollable column in a RefreshIndicator:
     return RefreshIndicator(
       onRefresh: _refreshHome,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        // AlwaysScrollableScrollPhysics makes sure pull works even if content < viewport.
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildStoreAutocomplete(),
             _buildGreeting(),
             _buildTipCard(),
-            // **NEW**: store list
+            // ← SEARCH BAR IS NOW HERE, AFTER THE TIP CARD
+            _buildLastCompletedOrderCard(),
+            
+            // ← LAST COMPLETED ORDER SECTION
+            
             _buildStoreList(),
           ],
         ),
@@ -593,7 +818,7 @@ class _HomePageState extends State<HomePage> {
       _buildHomeContent(),
       MapPage(initialStationId: _tappedStationId),
       const ActivityPage(),
-      Profile(),
+      const Profile(),
     ];
 
     return Scaffold(

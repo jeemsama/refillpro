@@ -19,7 +19,7 @@ class OtpAuthentication extends StatefulWidget {
 }
 
 class _OtpAuthenticationState extends State<OtpAuthentication> {
-  static const String _baseUrl = 'http://192.168.1.22:8000';
+  static const String _baseUrl = 'http://192.168.1.36:8000';
 
   late Timer _resendTimer;
   int _secondsRemaining = 15;

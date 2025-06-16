@@ -2,10 +2,11 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:async';
 
 class RegisterNameContactPage extends StatefulWidget {
   const RegisterNameContactPage({super.key});
@@ -20,8 +21,8 @@ class _RegisterNameContactPageState extends State<RegisterNameContactPage> {
   final TextEditingController _phoneController = TextEditingController();
   bool _isSubmitting = false;
 
-  // Simple regex for 10–11 digits
-  final RegExp _phoneRegex = RegExp(r'^[0-9]{10,11}$');
+  // Exactly 10 digits
+  final RegExp _phoneRegex = RegExp(r'^[0-9]{10}$');
 
   @override
   void dispose() {
@@ -32,33 +33,31 @@ class _RegisterNameContactPageState extends State<RegisterNameContactPage> {
 
   Future<void> _submit() async {
     final name = _nameController.text.trim();
-    final phone = _phoneController.text.trim();
+    final localPhone = _phoneController.text.trim(); // just the 10 digits
 
-    // Basic validation
+    // --- validation ---
     if (name.isEmpty || name.length < 3) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Name must be at least 3 characters.')),
       );
       return;
     }
-    if (phone.isEmpty || !_phoneRegex.hasMatch(phone)) {
-      if (!mounted) return;
+    if (!_phoneRegex.hasMatch(localPhone)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Enter a valid 10–11 digit phone number.')),
+        const SnackBar(content: Text('Enter exactly 10 digits for phone.')),
       );
       return;
     }
 
     setState(() => _isSubmitting = true);
+    final fullPhone = '+63$localPhone';
 
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('customer_token');
       if (token == null) throw Exception('No auth token found.');
 
-      final uri = Uri.parse('http://192.168.1.22:8000/api/customer/profile');
+      final uri = Uri.parse('http://192.168.1.36:8000/api/customer/profile');
       final response = await http
           .put(
             uri,
@@ -69,12 +68,11 @@ class _RegisterNameContactPageState extends State<RegisterNameContactPage> {
             },
             body: jsonEncode({
               'name': name,
-              'phone': phone,
+              'phone': fullPhone,
             }),
           )
           .timeout(const Duration(seconds: 15));
 
-      if (!mounted) return;
       if (response.statusCode == 200) {
         Navigator.pushReplacementNamed(context, '/home');
       } else {
@@ -85,40 +83,34 @@ class _RegisterNameContactPageState extends State<RegisterNameContactPage> {
         );
       }
     } on SocketException {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Network error. Check your connection.'),
         ),
       );
     } on TimeoutException {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Request timed out. Try again.')),
       );
     } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final height = MediaQuery.of(context).size.height;
+    final w = MediaQuery.of(context).size.width;
+    final h = MediaQuery.of(context).size.height;
 
     return Scaffold(
       backgroundColor: const Color(0xff52677D),
       body: SafeArea(
         child: Padding(
-          // Same horizontal padding as register_email.dart
-          padding: EdgeInsets.symmetric(horizontal: width * 0.15),
+          padding: EdgeInsets.symmetric(horizontal: w * 0.15),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -130,7 +122,7 @@ class _RegisterNameContactPageState extends State<RegisterNameContactPage> {
                   fontSize: 26.0,
                 ),
               ),
-              SizedBox(height: height * 0.01),
+              SizedBox(height: h * 0.01),
               const Text(
                 'Please enter your full name and phone number.',
                 style: TextStyle(
@@ -140,9 +132,9 @@ class _RegisterNameContactPageState extends State<RegisterNameContactPage> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: height * 0.04),
+              SizedBox(height: h * 0.04),
 
-              // Full Name field
+              // — Name field —
               Container(
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -155,14 +147,14 @@ class _RegisterNameContactPageState extends State<RegisterNameContactPage> {
                   keyboardType: TextInputType.name,
                   decoration: const InputDecoration(
                     border: InputBorder.none,
-                    hintText: 'Full name',
+                    hintText: 'Username',
                   ),
                   style: const TextStyle(fontFamily: 'Poppins'),
                 ),
               ),
-              SizedBox(height: height * 0.02),
+              SizedBox(height: h * 0.02),
 
-              // Phone Number field
+              // — Phone field with "+63 " prefix —
               Container(
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -170,19 +162,40 @@ class _RegisterNameContactPageState extends State<RegisterNameContactPage> {
                   color: const Color(0xffE1E1E1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: TextField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Phone number (e.g. 09171234567)',
-                  ),
-                  style: const TextStyle(fontFamily: 'Poppins'),
+                child: Row(
+                  children: [
+                    const Text(
+                      '+63',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 16,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'XXXXXXXXXX',
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        style: const TextStyle(fontFamily: 'Poppins'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: height * 0.04),
+              SizedBox(height: h * 0.04),
 
-              // Submit button (aligned to the right, same style as register_email.dart)
+              // — Submit button —
               Align(
                 alignment: Alignment.centerRight,
                 child: SizedBox(

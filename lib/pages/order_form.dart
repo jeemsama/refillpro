@@ -465,24 +465,23 @@ class _OrderFormState extends State<OrderForm> {
                               alignment: Alignment
                                   .center, // Center the child TextField
                               child: TextField(
-                                controller: phoneController,
-                                keyboardType: TextInputType.phone,
-                                maxLength: 11, // Limit to 11 digits
-                                inputFormatters: [
-                                  FilteringTextInputFormatter
-                                      .digitsOnly, // Allow only digits
-                                ],
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  counterText: '', // Hide the counter
-                                  isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.zero, // Remove padding
-                                ),
-                                textAlign: TextAlign
-                                    .left, // Keep text alignment to the left
-                                style: TextStyle(fontSize: w * 0.035),
-                              ),
+  controller: phoneController,
+  keyboardType: TextInputType.phone,
+  // only digits, max 10 of them
+  inputFormatters: [
+    FilteringTextInputFormatter.digitsOnly,
+    LengthLimitingTextInputFormatter(10),
+  ],
+  decoration: InputDecoration(
+    // prefixText: '+63 ',
+    border: InputBorder.none,
+    counterText: '',       // hide the built-in counter
+    isDense: true,
+    contentPadding: EdgeInsets.zero,
+  ),
+  style: TextStyle(fontSize: w * 0.035),
+),
+
                             ),
                           ),
                         ],

@@ -275,39 +275,65 @@ class _ActivityPageState extends State<ActivityPage>
     );
   }
 
-  Widget _buildOrderList(List<Order> orders, String emptyMessage) {
-    if (orders.isEmpty) {
-      return Center(
-        child: Padding(
-            padding: const EdgeInsets.only(top: 40), child: Text(emptyMessage)),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: orders.length,
-      itemBuilder: (context, i) {
-        final order = orders[i];
-        if (order.status.toLowerCase() == 'pending') {
-          return ActivityCard(
-            order: order,
-            actionLabel: 'Cancel order',
-            actionColor: const Color(0xFFA62C2C),
-            onAction: () => _showCancelDialog(order),
-          );
-        } else if (order.status.toLowerCase() == 'cancelled') {
-          return ActivityCard(
-            order: order,
-            actionLabel: 'Delete order',
-            actionColor: Colors.grey,
-            onAction: () => _deleteOrder(order),
-          );
-        } else {
-          // Completed or Accepted – no action button:
-          return ActivityCard(order: order);
-        }
-      },
+Widget _buildOrderList(List<Order> orders, String emptyMessage) {
+  if (orders.isEmpty) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: Text(emptyMessage),
+      ),
     );
   }
+
+  return ListView.builder(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    itemCount: orders.length,
+    itemBuilder: (context, i) {
+      final order = orders[i];
+
+      if (order.status.toLowerCase() == 'pending') {
+        return ActivityCard(
+          order: order,
+          actionLabel: 'Cancel order',
+          actionColor: const Color(0xFFA62C2C),
+          onAction: () => _showCancelDialog(order),
+        );
+      } 
+      else if (order.status.toLowerCase() == 'accepted') {
+        // (If you ever want a button on “accepted” you can do it here)
+        return ActivityCard(order: order);
+      }
+      else if (order.status.toLowerCase() == 'completed') {
+        // ← NEW: show “Order Received” button for completed orders
+        return ActivityCard(
+          order: order,
+          actionLabel: order.status.toLowerCase() == 'completed' ? 'Order Receive?' : 'Order Received',
+          actionColor: order.status.toLowerCase() == 'completed' ? Colors.green : Colors.blue,
+          onAction: () {
+            // call your “mark as received” API, then refresh
+            // e.g. ApiService.markAsReceived(int.parse(order.id));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Order marked as received')),
+            );
+            _loadMyOrders();
+          },
+        );
+      }
+      else if (order.status.toLowerCase() == 'cancelled') {
+        return ActivityCard(
+          order: order,
+          actionLabel: 'Delete order',
+          actionColor: Colors.grey,
+          onAction: () => _deleteOrder(order),
+        );
+      }
+
+      // fallback (shouldn’t happen if your statuses are only those four)
+      return ActivityCard(order: order);
+    },
+  );
+}
+
 
   Future<void> _showCancelDialog(Order order) async {
     final reasons = <String>[
